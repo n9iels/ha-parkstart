@@ -1,0 +1,50 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Log in with your ParkStart account.",
+        "data": {
+          "municipality": "Municipality",
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Authenticate integration",
+        "description": "Logging in to ParkStart as {email} failed. Enter the password again. If the portal asks for a reCAPTCHA, log in once in a browser first.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication",
+      "cannot_connect": "Failed to connect"
+    },
+    "abort": {
+      "already_configured": "Account is already configured",
+      "reauth_successful": "Re-authentication was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Sessions poll interval",
+          "max_duration": "Maximum session duration"
+        },
+        "data_description": {
+          "scan_interval": "How often active sessions are fetched, in minutes.",
+          "max_duration": "Longer sessions are refused before calling the portal, in hours."
+        }
+      }
+    }
+  },
+  "selector": {
+    "municipality": {
+      "options": {
+        "gouda": "Gouda"
+      }
+    }
+  }
+}

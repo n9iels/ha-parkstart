@@ -1,0 +1,12 @@
+{
+  "domain": "parkstart",
+  "name": "ParkStart",
+  "codeowners": ["@n9iels"],
+  "config_flow": true,
+  "documentation": "https://github.com/n9iels/ha-parkstart",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/n9iels/ha-parkstart/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

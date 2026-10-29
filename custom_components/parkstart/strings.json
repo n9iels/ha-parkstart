@@ -1,0 +1,50 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Log in with your ParkStart account.",
+        "data": {
+          "municipality": "Municipality",
+          "email": "[%key:common::config_flow::data::email%]",
+          "password": "[%key:common::config_flow::data::password%]"
+        }
+      },
+      "reauth_confirm": {
+        "title": "[%key:common::config_flow::title::reauth%]",
+        "description": "Logging in to ParkStart as {email} failed. Enter the password again. If the portal asks for a reCAPTCHA, log in once in a browser first.",
+        "data": {
+          "password": "[%key:common::config_flow::data::password%]"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Sessions poll interval",
+          "max_duration": "Maximum session duration"
+        },
+        "data_description": {
+          "scan_interval": "How often active sessions are fetched, in minutes.",
+          "max_duration": "Longer sessions are refused before calling the portal, in hours."
+        }
+      }
+    }
+  },
+  "selector": {
+    "municipality": {
+      "options": {
+        "gouda": "Gouda"
+      }
+    }
+  }
+}

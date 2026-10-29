@@ -1,0 +1,50 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Log in met je ParkStart-account.",
+        "data": {
+          "municipality": "Gemeente",
+          "email": "E-mail",
+          "password": "Wachtwoord"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Integratie opnieuw verifiëren",
+        "description": "Inloggen bij ParkStart als {email} is mislukt. Vul het wachtwoord opnieuw in. Vraagt het portaal om een reCAPTCHA, log dan eerst één keer in via een browser.",
+        "data": {
+          "password": "Wachtwoord"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ongeldige inloggegevens",
+      "cannot_connect": "Kan geen verbinding maken"
+    },
+    "abort": {
+      "already_configured": "Account is al geconfigureerd",
+      "reauth_successful": "Opnieuw verifiëren is gelukt"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Pollinterval parkeersessies",
+          "max_duration": "Maximale sessieduur"
+        },
+        "data_description": {
+          "scan_interval": "Hoe vaak actieve sessies worden opgehaald, in minuten.",
+          "max_duration": "Langere sessies worden geweigerd voordat het portaal wordt aangeroepen, in uren."
+        }
+      }
+    }
+  },
+  "selector": {
+    "municipality": {
+      "options": {
+        "gouda": "Gouda"
+      }
+    }
+  }
+}
