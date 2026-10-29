@@ -22,3 +22,8 @@ PLATES_SCAN_INTERVAL = timedelta(minutes=60)
 
 # The API returns session times as naive local times in this zone.
 API_TIMEZONE = ZoneInfo("Europe/Amsterdam")
+
+EVENT_SESSION_STARTED = f"{DOMAIN}_session_started"
+EVENT_SESSION_ENDED = f"{DOMAIN}_session_ended"
+SOURCE_HOME_ASSISTANT = "home_assistant"
+SOURCE_EXTERNAL = "external"

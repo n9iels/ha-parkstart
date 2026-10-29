@@ -7,15 +7,17 @@ from dataclasses import dataclass
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import ParkStartAuthError, ParkStartClient, ParkStartError
-from .const import CONF_MUNICIPALITY, MUNICIPALITIES
+from .const import CONF_MUNICIPALITY, DOMAIN, MUNICIPALITIES
+from .coordinator import PlatesCoordinator, SessionsCoordinator
+from .entity import permit_device_info, plate_device_id, plate_device_info
 
-# Sensor and binary_sensor platforms follow with the coordinator.
-PLATFORMS: list[Platform] = []
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 
 @dataclass
@@ -23,6 +25,8 @@ class ParkStartData:
     """Runtime data for a config entry."""
 
     client: ParkStartClient
+    plates: PlatesCoordinator
+    sessions: SessionsCoordinator
 
 
 type ParkStartConfigEntry = ConfigEntry[ParkStartData]
@@ -46,7 +50,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ParkStartConfigEntry) ->
     except ParkStartError as err:
         raise ConfigEntryNotReady(str(err)) from err
 
-    entry.runtime_data = ParkStartData(client=client)
+    plates = PlatesCoordinator(hass, entry, client)
+    sessions = SessionsCoordinator(hass, entry, client)
+    await plates.async_config_entry_first_refresh()
+    await sessions.async_config_entry_first_refresh()
+
+    entry.runtime_data = ParkStartData(client=client, plates=plates, sessions=sessions)
+    # Permit devices first: plate devices refer to them with via_device.
+    registry = dr.async_get(hass)
+    for permit in client.permits:
+        registry.async_get_or_create(config_entry_id=entry.entry_id, **permit_device_info(permit))
+    _sync_plate_devices(hass, entry)
+    entry.async_on_unload(plates.async_add_listener(lambda: _sync_plate_devices(hass, entry)))
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -59,3 +74,29 @@ async def async_unload_entry(hass: HomeAssistant, entry: ParkStartConfigEntry) -
 
 async def _async_options_updated(hass: HomeAssistant, entry: ParkStartConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+@callback
+def _sync_plate_devices(hass: HomeAssistant, entry: ParkStartConfigEntry) -> None:
+    """Mirror the portal's plates: rename changed plates, remove deleted ones (with entities).
+
+    New plates are added by the platforms.
+    """
+    plates = entry.runtime_data.plates.data
+    if plates is None:
+        return
+    current = {
+        plate_device_id(permit_id, plate.plate): plate_device_info(permit_id, plate)
+        for permit_id, permit_plates in plates.items()
+        for plate in permit_plates
+    }
+    permits = {str(permit.id) for permit in entry.runtime_data.client.permits}
+    registry = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
+        identifier = next((i for d, i in device.identifiers if d == DOMAIN), None)
+        if identifier is None or identifier in permits:
+            continue
+        if (info := current.get(identifier)) is None:
+            registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+        elif device.name != info["name"]:
+            registry.async_update_device(device.id, name=info["name"])

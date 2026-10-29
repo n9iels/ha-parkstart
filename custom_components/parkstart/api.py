@@ -8,6 +8,7 @@ See docs/API.md for the reverse-engineered endpoints. Rules that this client enf
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass
@@ -159,6 +160,10 @@ class ParkStartClient:
         self._email = email
         self._password = password
         self._model: dict[str, Any] | None = None
+        # Serialises logins so concurrent calls that hit an expired session log in only once.
+        self._login_lock = asyncio.Lock()
+        self._login_attempts = 0
+        self._login_error: ParkStartError | None = None
 
     @property
     def permits(self) -> list[Permit]:
@@ -169,6 +174,22 @@ class ParkStartClient:
 
     async def async_login(self) -> None:
         """Log in. Exactly one attempt; never call this in a retry loop."""
+        async with self._login_lock:
+            await self._async_login_locked()
+
+    async def _async_login_locked(self) -> None:
+        # After rejected credentials, only a new client (re-auth) may log in again.
+        if isinstance(self._login_error, ParkStartAuthError):
+            raise self._login_error
+        self._login_attempts += 1
+        self._login_error = None
+        try:
+            await self._async_do_login()
+        except ParkStartError as err:
+            self._login_error = err
+            raise
+
+    async def _async_do_login(self) -> None:
         # Start from an empty jar: GET / while logged in logs the session out anyway.
         self._session.cookie_jar.clear()
         login_page = await self._request("GET", "/")
@@ -260,12 +281,18 @@ class ParkStartClient:
         retry: bool = True,
     ) -> dict[str, Any]:
         """Call a JSON endpoint; on an expired session log in once and retry once."""
+        attempts = self._login_attempts
         try:
             return await self._ajax_once(path, body, referer=referer, form=form)
         except _SessionExpiredError:
             if not retry:
                 raise ParkStartError("Portal session expired; the call was not retried") from None
-        await self.async_login()
+        async with self._login_lock:
+            if self._login_attempts == attempts:
+                await self._async_login_locked()
+            elif self._login_error is not None:
+                # Another call already tried to log in meanwhile, and it failed.
+                raise self._login_error
         try:
             return await self._ajax_once(path, body, referer=referer, form=form)
         except _SessionExpiredError as err:

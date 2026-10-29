@@ -46,5 +46,39 @@
         "gouda": "Gouda"
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "parked": {
+        "name": "Geparkeerd",
+        "state_attributes": {
+          "session_id": {
+            "name": "Sessie-ID"
+          },
+          "cost": {
+            "name": "Kosten"
+          },
+          "zone": {
+            "name": "Zone"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "active_sessions": {
+        "name": "Actieve sessies",
+        "state_attributes": {
+          "sessions": {
+            "name": "Sessies"
+          }
+        }
+      },
+      "session_start": {
+        "name": "Start sessie"
+      },
+      "session_end": {
+        "name": "Einde sessie"
+      }
+    }
   }
 }

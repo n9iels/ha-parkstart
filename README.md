@@ -6,8 +6,9 @@ It is meant as a base for automations: actions and read-only entities, no dashbo
 > ⚠ Starting a parking session costs money. The integration never retries a start.
 
 ## Status
-Work in progress (v0.1.0). Done: API client, config flow (with re-auth) and options flow.
-Next: coordinator, entities, `parkstart.start_session` / `parkstart.stop_session` actions and events.
+Work in progress (v0.1.0). Done: API client, config flow (with re-auth), options flow, entities and
+`parkstart_session_started` / `parkstart_session_ended` events.
+Next: the `parkstart.start_session` / `parkstart.stop_session` actions.
 See [docs/DESIGN.md](docs/DESIGN.md) for the full v1 design.
 
 Supported municipalities: Gouda.

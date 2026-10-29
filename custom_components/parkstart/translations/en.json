@@ -46,5 +46,39 @@
         "gouda": "Gouda"
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "parked": {
+        "name": "Parked",
+        "state_attributes": {
+          "session_id": {
+            "name": "Session ID"
+          },
+          "cost": {
+            "name": "Cost"
+          },
+          "zone": {
+            "name": "Zone"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "active_sessions": {
+        "name": "Active sessions",
+        "state_attributes": {
+          "sessions": {
+            "name": "Sessions"
+          }
+        }
+      },
+      "session_start": {
+        "name": "Session start"
+      },
+      "session_end": {
+        "name": "Session end"
+      }
+    }
   }
 }

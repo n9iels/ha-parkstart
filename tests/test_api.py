@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import AsyncIterator
@@ -206,3 +207,41 @@ def test_format_api_time() -> None:
     local = datetime(2026, 10, 29, 16, 44, 37, 123, tzinfo=API_TIMEZONE)
     assert format_api_time(local) == "2026-10-29T15:44:00.000Z"
     assert json.dumps(format_api_time(local))
+
+
+async def test_concurrent_expired_calls_log_in_once(
+    client: ParkStartClient, mock: aioresponses
+) -> None:
+    mock_login(mock)
+    await client.async_login()
+
+    async def in_flight(url, **kwargs) -> None:
+        # Keep the first request pending so both calls see the expired session.
+        await asyncio.sleep(0.01)
+
+    for url in (SESSIONS_URL, PLATES_URL):
+        mock.post(url, status=302, headers={"Location": "/Error/Error"}, callback=in_flight)
+    mock_login(mock)
+    mock.post(SESSIONS_URL, body=load_fixture("sessions.json"), content_type="application/json")
+    mock.post(PLATES_URL, body=load_fixture("license_plates.json"), content_type="application/json")
+
+    await asyncio.gather(client.async_get_sessions(), client.async_get_license_plates(10001))
+
+    assert len(requests_to(mock, "POST", f"{BASE_URL}/")) == 2
+
+
+async def test_no_login_after_rejected_credentials(
+    client: ParkStartClient, mock: aioresponses
+) -> None:
+    mock_login(mock)
+    await client.async_login()
+    mock_expired(mock, SESSIONS_URL)
+    mock.get(f"{BASE_URL}/", body=load_fixture("login_page.html"), content_type="text/html")
+    mock.post(f"{BASE_URL}/", body=load_fixture("login_page.html"), content_type="text/html")
+    with pytest.raises(ParkStartAuthError):
+        await client.async_get_sessions()
+
+    mock_expired(mock, PLATES_URL)
+    with pytest.raises(ParkStartAuthError):
+        await client.async_get_license_plates(10001)
+    assert len(requests_to(mock, "POST", f"{BASE_URL}/")) == 2

@@ -10,23 +10,21 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.parkstart.api import ParkStartAuthError, ParkStartConnectionError
-from custom_components.parkstart.const import DOMAIN
 
-from .conftest import ENTRY_DATA
+from .conftest import LOGIN_URL, Portal
 
 LOGIN = "custom_components.parkstart.api.ParkStartClient.async_login"
 
 
-async def test_setup_and_unload(hass: HomeAssistant) -> None:
-    entry = MockConfigEntry(domain=DOMAIN, unique_id="gouda_user@example.com", data=ENTRY_DATA)
-    entry.add_to_hass(hass)
+async def test_setup_and_unload(
+    hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
+) -> None:
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    assert config_entry.state is ConfigEntryState.LOADED
+    assert portal.count("POST", LOGIN_URL) == 1
 
-    with patch(LOGIN, new=AsyncMock()):
-        assert await hass.config_entries.async_setup(entry.entry_id)
-    assert entry.state is ConfigEntryState.LOADED
-
-    assert await hass.config_entries.async_unload(entry.entry_id)
-    assert entry.state is ConfigEntryState.NOT_LOADED
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    assert config_entry.state is ConfigEntryState.NOT_LOADED
 
 
 @pytest.mark.parametrize(
@@ -37,15 +35,15 @@ async def test_setup_and_unload(hass: HomeAssistant) -> None:
     ],
 )
 async def test_setup_failure(
-    hass: HomeAssistant, error: type[Exception], state: ConfigEntryState
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    error: type[Exception],
+    state: ConfigEntryState,
 ) -> None:
-    entry = MockConfigEntry(domain=DOMAIN, unique_id="gouda_user@example.com", data=ENTRY_DATA)
-    entry.add_to_hass(hass)
-
     with patch(LOGIN, new=AsyncMock(side_effect=error)) as login:
-        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.config_entries.async_setup(config_entry.entry_id)
 
-    assert entry.state is state
+    assert config_entry.state is state
     login.assert_awaited_once()
     # A failed login starts the re-auth flow.
     reauth = [
