@@ -1,0 +1,31 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "parked": {
+        "default": "mdi:car-off",
+        "state": {
+          "on": "mdi:car-clock"
+        }
+      }
+    },
+    "sensor": {
+      "active_sessions": {
+        "default": "mdi:parking"
+      },
+      "session_start": {
+        "default": "mdi:clock-start"
+      },
+      "session_end": {
+        "default": "mdi:clock-end"
+      }
+    }
+  },
+  "services": {
+    "start_session": {
+      "service": "mdi:car-clock"
+    },
+    "stop_session": {
+      "service": "mdi:car-off"
+    }
+  }
+}

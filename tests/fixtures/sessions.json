@@ -1,0 +1,6 @@
+{"recordsFiltered":1,"recordsTotal":1,"data":[
+  {"id":3000001,"permitId":10001,"timeStartUtc":"2026-10-29T16:44:00","timeEndUtc":"2026-10-29T16:49:00",
+   "costMoney":0.03,"costTime":5,"lp":"XX000X","lpDescription":"Visitor A","psRightId":"2000000001",
+   "name":"Bezoeker bewoner","permitNumber":"1000000001","isActive":true,
+   "permitAreaDescription":"Sector 1 (Example)","zoneCode":"BEZ_S-1","email":"user@example.com","customerPays":true}
+]}

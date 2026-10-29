@@ -1,0 +1,45 @@
+start_session:
+  fields:
+    entity_id:
+      selector:
+        entity:
+          filter:
+            integration: parkstart
+            domain: binary_sensor
+    license_plate:
+      example: "XX-000-X"
+      selector:
+        text:
+    duration:
+      selector:
+        duration:
+    end_time:
+      selector:
+        datetime:
+    permit:
+      selector:
+        device:
+          filter:
+            integration: parkstart
+
+stop_session:
+  fields:
+    entity_id:
+      selector:
+        entity:
+          filter:
+            integration: parkstart
+            domain: binary_sensor
+    license_plate:
+      example: "XX-000-X"
+      selector:
+        text:
+    session_id:
+      example: 3000001
+      selector:
+        text:
+    permit:
+      selector:
+        device:
+          filter:
+            integration: parkstart

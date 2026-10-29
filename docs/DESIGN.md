@@ -36,7 +36,10 @@ entity, editing plates, permit balance sensors.
   **one** retry of the call.
 - A failed login raises `ConfigEntryAuthFailed`, which starts HA's re-auth flow and stops polling.
 - Logins are never retried automatically, because failed logins enable a reCAPTCHA.
-- `StartParkingSession` is never retried, because it costs money.
+- `StartParkingSession` costs money. Like every action, it logs in again once after an expired-session
+  **redirect** (the session timeout is unknown, and a redirect means the start was not processed).
+  It is never retried after a network error or an unexpected HTML answer, because the start may have
+  gone through. (Changed 2026-10-29.)
 
 ## Devices & entities (all read-only)
 **Permit device** (one per permit; the code handles N permits, the account has one today)
@@ -47,7 +50,7 @@ entity, editing plates, permit balance sensors.
 - A read-only mirror of the portal's saved plates, named after the plate's `comment` (falling back to the plate).
   Devices and entities are added and removed as the portal list changes. HA never edits plates.
 - `binary_sensor.<plate>_parked`: on while the plate has an active session.
-  Attributes: `session_id`, `cost` (€), `zone`.
+  Attributes: `license_plate`, `session_id`, `cost` (€), `zone`.
 - `sensor.<plate>_session_start` and `sensor.<plate>_session_end`: timestamps, **unknown** when there is no
   session. ("Unavailable" is kept for "the integration is broken".)
 - If a plate has more than one session, the entities show the active one, otherwise the earliest one.
@@ -66,17 +69,20 @@ No buttons, selects or numbers in v1. They may be added later.
 
 ## Actions
 ### `parkstart.start_session`
-- `license_plate` (required): any plate, not only saved ones. It is normalised to upper case without dashes.
-  The selector suggests the saved plates and also allows custom values.
+- The plate is given as exactly one of:
+  - `entity_id`: a saved plate's `parked` entity (entity selector, so the UI lists the saved plates).
+    The entity's permit is used, so `permit` can't be combined with it.
+  - `license_plate`: any plate, not only saved ones, as free text. It is normalised to upper case
+    without dashes.
 - Exactly one of `duration` (HA duration selector) or `end_time` (datetime). Neither or both → error.
 - Rejected before calling the API if the duration is longer than the configured max.
-- `permit` (device selector): only needed when the account has more than one permit.
+- `permit` (device selector): only needed for a `license_plate` when the account has more than one permit.
 - Starts **now** only. There is no `start_time` (the planned-session behavior is unverified and costs money to verify).
 - Returns `session_id` as response data. The start call does not return it, so it is found by re-fetching
   sessions and matching on the plate.
 
 ### `parkstart.stop_session`
-- One of `session_id` or `license_plate`.
+- One of `session_id`, `entity_id` (a saved plate's `parked` entity) or `license_plate`.
 - If the plate has more than one session → error. The integration does not guess.
 
 ## Events
@@ -102,7 +108,7 @@ No buttons, selects or numbers in v1. They may be added later.
 | 4 | Actions first, with response data | The integration is a base for automations |
 | 5 | Active-sessions sensor + started/ended events | Sessions come and go; events also catch sessions started outside HA |
 | 6 | No planned sessions in v1 | Unverified API behavior, and verifying it costs money |
-| 7 | Single re-login, never retry login or start | reCAPTCHA risk; starting costs money |
+| 7 | Single re-login, never retry login; start retried only after an expired-session redirect | reCAPTCHA risk; starting costs money, but a redirect means nothing was started |
 | 8 | 10 min sessions / 60 min plates, refresh after actions | Few logins; the local end timer covers the lag at session end |
 | 9 | Explicit duration required, max-duration cap | Prevents accidental expensive sessions |
 | 10 | Fixed municipality dropdown | Only Gouda has been checked |
@@ -111,3 +117,4 @@ No buttons, selects or numbers in v1. They may be added later.
 | 14 | Any plate can be started | One-off visitors; matches the portal |
 | 15 | No dashboard entities in v1 | Keep v1 to actions and read-only entities; may come later |
 | 20 | `source` field on events | Automations can tell their own sessions apart from ones started in the app |
+| 21 | Actions accept a plate's `parked` entity | You pick the plate to park or stop; selectors can't list plates any other way |

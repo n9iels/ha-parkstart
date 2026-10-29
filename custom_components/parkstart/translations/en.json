@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Log in with your ParkStart account.",
+        "data": {
+          "municipality": "Municipality",
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Authenticate integration",
+        "description": "Logging in to ParkStart as {email} failed. Enter the password again. If the portal asks for a reCAPTCHA, log in once in a browser first.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication",
+      "cannot_connect": "Failed to connect"
+    },
+    "abort": {
+      "already_configured": "Account is already configured",
+      "reauth_successful": "Re-authentication was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Sessions poll interval",
+          "max_duration": "Maximum session duration"
+        },
+        "data_description": {
+          "scan_interval": "How often active sessions are fetched, in minutes.",
+          "max_duration": "Longer sessions are refused before calling the portal, in hours."
+        }
+      }
+    }
+  },
+  "selector": {
+    "municipality": {
+      "options": {
+        "gouda": "Gouda"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "parked": {
+        "name": "Parked",
+        "state_attributes": {
+          "license_plate": {
+            "name": "License plate"
+          },
+          "session_id": {
+            "name": "Session ID"
+          },
+          "cost": {
+            "name": "Cost"
+          },
+          "zone": {
+            "name": "Zone"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "active_sessions": {
+        "name": "Active sessions",
+        "state_attributes": {
+          "sessions": {
+            "name": "Sessions"
+          }
+        }
+      },
+      "session_start": {
+        "name": "Session start"
+      },
+      "session_end": {
+        "name": "Session end"
+      }
+    }
+  },
+  "services": {
+    "start_session": {
+      "name": "Start parking session",
+      "description": "Starts a parking session now. This costs money.",
+      "fields": {
+        "entity_id": {
+          "name": "Saved license plate",
+          "description": "The parked entity of a saved plate. Use either this or a license plate."
+        },
+        "license_plate": {
+          "name": "License plate",
+          "description": "Any license plate, also ones that aren't saved. Dashes and case are ignored."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "How long to park. Use either this or the end time."
+        },
+        "end_time": {
+          "name": "End time",
+          "description": "When the session ends. Use either this or the duration."
+        },
+        "permit": {
+          "name": "Permit",
+          "description": "Only needed for a typed license plate when you have more than one permit."
+        }
+      }
+    },
+    "stop_session": {
+      "name": "Stop parking session",
+      "description": "Stops a running parking session.",
+      "fields": {
+        "entity_id": {
+          "name": "Saved license plate",
+          "description": "Stop the session of this saved plate (its parked entity)."
+        },
+        "session_id": {
+          "name": "Session ID",
+          "description": "The session to stop. Use either this or the license plate."
+        },
+        "license_plate": {
+          "name": "License plate",
+          "description": "Stop the session of this plate. Fails when the plate has more than one session."
+        },
+        "permit": {
+          "name": "Permit",
+          "description": "Only look at sessions of this permit."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "permit_required": {
+      "message": "More than one permit (or none) is set up; choose a permit."
+    },
+    "invalid_permit": {
+      "message": "The selected device is not a ParkStart permit."
+    },
+    "end_too_soon": {
+      "message": "The session must end at least a minute from now."
+    },
+    "too_long": {
+      "message": "The session is longer than the maximum of {max_hours} hours (see the integration options)."
+    },
+    "session_not_found": {
+      "message": "No active session found for {session}."
+    },
+    "multiple_sessions": {
+      "message": "License plate {plate} has more than one session; stop it by session ID."
+    },
+    "start_failed": {
+      "message": "Starting the parking session failed: {error}"
+    },
+    "stop_failed": {
+      "message": "Stopping the parking session failed: {error}"
+    },
+    "invalid_plate_entity": {
+      "message": "{entity_id} is not the parked entity of a ParkStart license plate."
+    }
+  }
+}

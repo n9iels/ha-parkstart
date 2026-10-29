@@ -1,0 +1,166 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Log in met je ParkStart-account.",
+        "data": {
+          "municipality": "Gemeente",
+          "email": "E-mail",
+          "password": "Wachtwoord"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Integratie opnieuw verifiëren",
+        "description": "Inloggen bij ParkStart als {email} is mislukt. Vul het wachtwoord opnieuw in. Vraagt het portaal om een reCAPTCHA, log dan eerst één keer in via een browser.",
+        "data": {
+          "password": "Wachtwoord"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ongeldige inloggegevens",
+      "cannot_connect": "Kan geen verbinding maken"
+    },
+    "abort": {
+      "already_configured": "Account is al geconfigureerd",
+      "reauth_successful": "Opnieuw verifiëren is gelukt"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Pollinterval parkeersessies",
+          "max_duration": "Maximale sessieduur"
+        },
+        "data_description": {
+          "scan_interval": "Hoe vaak actieve sessies worden opgehaald, in minuten.",
+          "max_duration": "Langere sessies worden geweigerd voordat het portaal wordt aangeroepen, in uren."
+        }
+      }
+    }
+  },
+  "selector": {
+    "municipality": {
+      "options": {
+        "gouda": "Gouda"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "parked": {
+        "name": "Geparkeerd",
+        "state_attributes": {
+          "license_plate": {
+            "name": "Kenteken"
+          },
+          "session_id": {
+            "name": "Sessie-ID"
+          },
+          "cost": {
+            "name": "Kosten"
+          },
+          "zone": {
+            "name": "Zone"
+          }
+        }
+      }
+    },
+    "sensor": {
+      "active_sessions": {
+        "name": "Actieve sessies",
+        "state_attributes": {
+          "sessions": {
+            "name": "Sessies"
+          }
+        }
+      },
+      "session_start": {
+        "name": "Start sessie"
+      },
+      "session_end": {
+        "name": "Einde sessie"
+      }
+    }
+  },
+  "services": {
+    "start_session": {
+      "name": "Parkeersessie starten",
+      "description": "Start nu een parkeersessie. Dit kost geld.",
+      "fields": {
+        "entity_id": {
+          "name": "Opgeslagen kenteken",
+          "description": "De geparkeerd-entiteit van een opgeslagen kenteken. Gebruik dit of een kenteken."
+        },
+        "license_plate": {
+          "name": "Kenteken",
+          "description": "Elk kenteken, ook niet-opgeslagen kentekens. Streepjes en hoofdletters maken niet uit."
+        },
+        "duration": {
+          "name": "Duur",
+          "description": "Hoe lang je parkeert. Gebruik dit of de eindtijd."
+        },
+        "end_time": {
+          "name": "Eindtijd",
+          "description": "Wanneer de sessie eindigt. Gebruik dit of de duur."
+        },
+        "permit": {
+          "name": "Vergunning",
+          "description": "Alleen nodig bij een getypt kenteken als je meer dan één vergunning hebt."
+        }
+      }
+    },
+    "stop_session": {
+      "name": "Parkeersessie stoppen",
+      "description": "Stopt een lopende parkeersessie.",
+      "fields": {
+        "entity_id": {
+          "name": "Opgeslagen kenteken",
+          "description": "Stop de sessie van dit opgeslagen kenteken (de geparkeerd-entiteit)."
+        },
+        "session_id": {
+          "name": "Sessie-ID",
+          "description": "De sessie die je wilt stoppen. Gebruik dit of het kenteken."
+        },
+        "license_plate": {
+          "name": "Kenteken",
+          "description": "Stop de sessie van dit kenteken. Mislukt als het kenteken meer dan één sessie heeft."
+        },
+        "permit": {
+          "name": "Vergunning",
+          "description": "Alleen sessies van deze vergunning bekijken."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "permit_required": {
+      "message": "Er is meer dan één vergunning (of geen) ingesteld; kies een vergunning."
+    },
+    "invalid_permit": {
+      "message": "Het gekozen apparaat is geen ParkStart-vergunning."
+    },
+    "end_too_soon": {
+      "message": "De sessie moet minstens een minuut vanaf nu eindigen."
+    },
+    "too_long": {
+      "message": "De sessie is langer dan het maximum van {max_hours} uur (zie de opties van de integratie)."
+    },
+    "session_not_found": {
+      "message": "Geen actieve sessie gevonden voor {session}."
+    },
+    "multiple_sessions": {
+      "message": "Kenteken {plate} heeft meer dan één sessie; stop de sessie via het sessie-ID."
+    },
+    "start_failed": {
+      "message": "Starten van de parkeersessie is mislukt: {error}"
+    },
+    "stop_failed": {
+      "message": "Stoppen van de parkeersessie is mislukt: {error}"
+    },
+    "invalid_plate_entity": {
+      "message": "{entity_id} is geen geparkeerd-entiteit van een ParkStart-kenteken."
+    }
+  }
+}
