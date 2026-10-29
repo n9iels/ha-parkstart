@@ -42,7 +42,7 @@ async def stop(hass: HomeAssistant, **data: Any) -> None:
     await hass.services.async_call(DOMAIN, "stop_session", data, blocking=True)
 
 
-def parked(hass: HomeAssistant, plate: str) -> str:
+def plate_state(hass: HomeAssistant, plate: str) -> str:
     return hass.states.get({"XX000X": VISITOR_A, "YY111Y": YY111Y}[plate]).state
 
 
@@ -61,7 +61,7 @@ async def test_start_with_duration(hass: HomeAssistant, portal: Portal) -> None:
     assert [(e.data["session_id"], e.data["source"]) for e in started] == [
         (3000101, "home_assistant")
     ]
-    assert parked(hass, "YY111Y") == STATE_ON
+    assert plate_state(hass, "YY111Y") == STATE_ON
 
 
 @pytest.mark.usefixtures("loaded")
@@ -153,7 +153,7 @@ async def test_stop_by_plate(hass: HomeAssistant, portal: Portal) -> None:
     assert [(e.data["session_id"], e.data["source"]) for e in ended] == [
         (3000001, "home_assistant")
     ]
-    assert parked(hass, "XX000X") == STATE_OFF
+    assert plate_state(hass, "XX000X") == STATE_OFF
 
 
 @pytest.mark.usefixtures("loaded")
@@ -238,7 +238,7 @@ async def test_start_by_target_entity(
     [body] = portal.started
     assert body["lp"] == "YY111Y"
     assert body["permitId"] == 10001
-    assert parked(hass, "YY111Y") == STATE_ON
+    assert plate_state(hass, "YY111Y") == STATE_ON
 
 
 @pytest.mark.usefixtures("loaded")
@@ -246,7 +246,7 @@ async def test_stop_by_target(hass: HomeAssistant, portal: Portal) -> None:
     await stop(hass, entity_id=VISITOR_A)
 
     assert portal.stopped == [3000001]
-    assert parked(hass, "XX000X") == STATE_OFF
+    assert plate_state(hass, "XX000X") == STATE_OFF
 
 
 @pytest.mark.usefixtures("loaded")

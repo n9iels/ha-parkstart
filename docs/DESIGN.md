@@ -117,7 +117,7 @@ No buttons, selects or numbers in v1. They may be added later.
 | 9 | Explicit duration required, max-duration cap | Prevents accidental expensive sessions |
 | 10 | Fixed municipality dropdown | Only Gouda has been checked |
 | 11 | Mocked tests only | Live starts cost money |
-| 12 | Local end-time timer | Keeps "parked" accurate despite 10 min polling |
+| 12 | Local end-time timer | Keeps the plate entities accurate despite 10 min polling |
 | 14 | Any plate can be started | One-off visitors; matches the portal |
 | 15 | No dashboard entities in v1 | Keep v1 to actions and read-only entities; may come later |
 | 20 | `source` field on events | Automations can tell their own sessions apart from ones started in the app |

@@ -117,7 +117,6 @@ class ParkingSession:
     end: datetime
     cost: float | None
     zone: str | None
-    is_active: bool
 
     @classmethod
     def from_api(cls, data: dict[str, Any]) -> ParkingSession:
@@ -131,7 +130,6 @@ class ParkingSession:
             end=parse_api_time(data["timeEndUtc"]),
             cost=data.get("costMoney"),
             zone=data.get("zoneCode"),
-            is_active=bool(data.get("isActive")),
         )
 
 
