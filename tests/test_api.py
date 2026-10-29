@@ -15,6 +15,7 @@ from aioresponses import aioresponses
 from custom_components.parkstart.api import (
     ParkStartAuthError,
     ParkStartClient,
+    ParkStartConnectionError,
     ParkStartError,
     format_api_time,
 )
@@ -169,15 +170,45 @@ async def test_start_session_body(client: ParkStartClient, mock: aioresponses) -
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:00\.000Z", body["timeStart"])
 
 
-async def test_start_session_is_never_retried(client: ParkStartClient, mock: aioresponses) -> None:
+async def test_start_session_relogs_after_redirect(
+    client: ParkStartClient, mock: aioresponses
+) -> None:
     mock_login(mock)
     await client.async_login()
     mock_expired(mock, START_URL)
+    mock_login(mock)
+    mock.post(START_URL, payload={"successful": True})
+
+    await client.async_start_session(10001, "XX000X", datetime.now(UTC) + timedelta(hours=1))
+
+    assert len(requests_to(mock, "POST", START_URL)) == 2
+    assert len(requests_to(mock, "POST", f"{BASE_URL}/")) == 2
+
+
+async def test_start_session_not_retried_after_html(
+    client: ParkStartClient, mock: aioresponses
+) -> None:
+    """An HTML answer might come after the start was processed, so it is not retried."""
+    mock_login(mock)
+    await client.async_login()
+    mock.post(START_URL, body="<html></html>", content_type="text/html")
 
     with pytest.raises(ParkStartError, match="not retried"):
         await client.async_start_session(10001, "XX000X", datetime.now(UTC) + timedelta(hours=1))
     assert len(requests_to(mock, "POST", START_URL)) == 1
     assert len(requests_to(mock, "POST", f"{BASE_URL}/")) == 1
+
+
+async def test_start_session_not_retried_after_network_error(
+    client: ParkStartClient, mock: aioresponses
+) -> None:
+    mock_login(mock)
+    await client.async_login()
+    mock.post(START_URL, exception=aiohttp.ServerDisconnectedError())
+
+    with pytest.raises(ParkStartConnectionError):
+        await client.async_start_session(10001, "XX000X", datetime.now(UTC) + timedelta(hours=1))
+    assert len(requests_to(mock, "POST", START_URL)) == 1
 
 
 async def test_start_session_failure(client: ParkStartClient, mock: aioresponses) -> None:

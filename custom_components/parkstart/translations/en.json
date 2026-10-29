@@ -80,5 +80,73 @@
         "name": "Session end"
       }
     }
+  },
+  "services": {
+    "start_session": {
+      "name": "Start parking session",
+      "description": "Starts a parking session now. This costs money.",
+      "fields": {
+        "license_plate": {
+          "name": "License plate",
+          "description": "Any license plate, not only saved ones. Dashes and case are ignored."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "How long to park. Use either this or the end time."
+        },
+        "end_time": {
+          "name": "End time",
+          "description": "When the session ends. Use either this or the duration."
+        },
+        "permit": {
+          "name": "Permit",
+          "description": "Only needed when you have more than one permit."
+        }
+      }
+    },
+    "stop_session": {
+      "name": "Stop parking session",
+      "description": "Stops a running parking session.",
+      "fields": {
+        "session_id": {
+          "name": "Session ID",
+          "description": "The session to stop. Use either this or the license plate."
+        },
+        "license_plate": {
+          "name": "License plate",
+          "description": "Stop the session of this plate. Fails when the plate has more than one session."
+        },
+        "permit": {
+          "name": "Permit",
+          "description": "Only look at sessions of this permit."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "permit_required": {
+      "message": "More than one permit (or none) is set up; choose a permit."
+    },
+    "invalid_permit": {
+      "message": "The selected device is not a ParkStart permit."
+    },
+    "end_too_soon": {
+      "message": "The session must end at least a minute from now."
+    },
+    "too_long": {
+      "message": "The session is longer than the maximum of {max_hours} hours (see the integration options)."
+    },
+    "session_not_found": {
+      "message": "No active session found for {session}."
+    },
+    "multiple_sessions": {
+      "message": "License plate {plate} has more than one session; stop it by session ID."
+    },
+    "start_failed": {
+      "message": "Starting the parking session failed: {error}"
+    },
+    "stop_failed": {
+      "message": "Stopping the parking session failed: {error}"
+    }
   }
 }

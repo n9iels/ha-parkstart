@@ -9,15 +9,19 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import ParkStartAuthError, ParkStartClient, ParkStartError
 from .const import CONF_MUNICIPALITY, DOMAIN, MUNICIPALITIES
 from .coordinator import PlatesCoordinator, SessionsCoordinator
 from .entity import permit_device_info, plate_device_id, plate_device_info
+from .services import async_setup_services
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 @dataclass
@@ -38,6 +42,12 @@ def create_client(hass: HomeAssistant, data: dict) -> ParkStartClient:
     return ParkStartClient(
         session, MUNICIPALITIES[data[CONF_MUNICIPALITY]], data[CONF_EMAIL], data[CONF_PASSWORD]
     )
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the actions; they work for every loaded config entry."""
+    async_setup_services(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ParkStartConfigEntry) -> bool:

@@ -3,7 +3,8 @@
 See docs/API.md for the reverse-engineered endpoints. Rules that this client enforces:
 - Logins are never retried: failed logins enable a reCAPTCHA.
 - An expired session leads to one re-login and one retry of the call.
-- Starting a session is never retried, because it costs money.
+- Starting a session costs money. It is only retried after an expired-session redirect, which means
+  the start was not processed. Network errors and unexpected HTML answers are never retried.
 """
 
 from __future__ import annotations
@@ -59,6 +60,11 @@ class ParkStartAuthError(ParkStartError):
 
 class _SessionExpiredError(ParkStartError):
     """The portal session expired; a re-login is needed."""
+
+    def __init__(self, message: str, *, redirected: bool) -> None:
+        super().__init__(message)
+        # A redirect means the request was not processed; an HTML page might come after processing.
+        self.redirected = redirected
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,7 +251,7 @@ class ParkStartClient:
         return [ParkingSession.from_api(s) for s in data.get("data") or []]
 
     async def async_start_session(self, permit_id: int, plate: str, end: datetime) -> None:
-        """Start a session now. Costs money, so it is never retried."""
+        """Start a session now. Costs money: retried only after an expired-session redirect."""
         if self._model is None:
             raise ParkStartError("Not logged in")
         body = dict(self._model["addItem"])
@@ -259,7 +265,9 @@ class ParkStartClient:
                 "saveMode": True,
             }
         )
-        result = await self._ajax(f"{_PLAN_SESSION}/StartParkingSession", body, retry=False)
+        result = await self._ajax(
+            f"{_PLAN_SESSION}/StartParkingSession", body, retry_after_html=False
+        )
         _raise_unless_successful(result, "Starting the session failed")
 
     async def async_stop_session(self, session_id: int) -> None:
@@ -278,15 +286,17 @@ class ParkStartClient:
         *,
         referer: str = _PLAN_SESSION,
         form: bool = False,
-        retry: bool = True,
+        retry_after_html: bool = True,
     ) -> dict[str, Any]:
         """Call a JSON endpoint; on an expired session log in once and retry once."""
         attempts = self._login_attempts
         try:
             return await self._ajax_once(path, body, referer=referer, form=form)
-        except _SessionExpiredError:
-            if not retry:
-                raise ParkStartError("Portal session expired; the call was not retried") from None
+        except _SessionExpiredError as err:
+            if not err.redirected and not retry_after_html:
+                raise ParkStartError(
+                    f"Unexpected response from {path}; not retried, check the portal"
+                ) from err
         async with self._login_lock:
             if self._login_attempts == attempts:
                 await self._async_login_locked()
@@ -317,11 +327,15 @@ class ParkStartClient:
                 **kwargs,
             ) as resp:
                 if resp.status in (301, 302, 303):
-                    raise _SessionExpiredError(f"Redirected to {resp.headers.get('Location')}")
+                    raise _SessionExpiredError(
+                        f"Redirected to {resp.headers.get('Location')}", redirected=True
+                    )
                 if resp.status >= 400:
                     raise ParkStartConnectionError(f"{path} returned HTTP {resp.status}")
                 if "json" not in resp.content_type:
-                    raise _SessionExpiredError(f"{path} returned {resp.content_type}")
+                    raise _SessionExpiredError(
+                        f"{path} returned {resp.content_type}", redirected=False
+                    )
                 return await resp.json()
         except (aiohttp.ClientError, TimeoutError, ValueError) as err:
             raise ParkStartConnectionError(f"{path} failed: {err}") from err

@@ -36,7 +36,10 @@ entity, editing plates, permit balance sensors.
   **one** retry of the call.
 - A failed login raises `ConfigEntryAuthFailed`, which starts HA's re-auth flow and stops polling.
 - Logins are never retried automatically, because failed logins enable a reCAPTCHA.
-- `StartParkingSession` is never retried, because it costs money.
+- `StartParkingSession` costs money. Like every action, it logs in again once after an expired-session
+  **redirect** (the session timeout is unknown, and a redirect means the start was not processed).
+  It is never retried after a network error or an unexpected HTML answer, because the start may have
+  gone through. (Changed 2026-10-29.)
 
 ## Devices & entities (all read-only)
 **Permit device** (one per permit; the code handles N permits, the account has one today)
@@ -67,7 +70,7 @@ No buttons, selects or numbers in v1. They may be added later.
 ## Actions
 ### `parkstart.start_session`
 - `license_plate` (required): any plate, not only saved ones. It is normalised to upper case without dashes.
-  The selector suggests the saved plates and also allows custom values.
+  The selector is free text: `services.yaml` selectors can't list the saved plates dynamically.
 - Exactly one of `duration` (HA duration selector) or `end_time` (datetime). Neither or both → error.
 - Rejected before calling the API if the duration is longer than the configured max.
 - `permit` (device selector): only needed when the account has more than one permit.
@@ -102,7 +105,7 @@ No buttons, selects or numbers in v1. They may be added later.
 | 4 | Actions first, with response data | The integration is a base for automations |
 | 5 | Active-sessions sensor + started/ended events | Sessions come and go; events also catch sessions started outside HA |
 | 6 | No planned sessions in v1 | Unverified API behavior, and verifying it costs money |
-| 7 | Single re-login, never retry login or start | reCAPTCHA risk; starting costs money |
+| 7 | Single re-login, never retry login; start retried only after an expired-session redirect | reCAPTCHA risk; starting costs money, but a redirect means nothing was started |
 | 8 | 10 min sessions / 60 min plates, refresh after actions | Few logins; the local end timer covers the lag at session end |
 | 9 | Explicit duration required, max-duration cap | Prevents accidental expensive sessions |
 | 10 | Fixed municipality dropdown | Only Gouda has been checked |

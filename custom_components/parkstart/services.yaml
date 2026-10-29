@@ -1,0 +1,34 @@
+start_session:
+  fields:
+    license_plate:
+      required: true
+      example: "XX-000-X"
+      selector:
+        text:
+    duration:
+      selector:
+        duration:
+    end_time:
+      selector:
+        datetime:
+    permit:
+      selector:
+        device:
+          filter:
+            integration: parkstart
+
+stop_session:
+  fields:
+    session_id:
+      example: 3000001
+      selector:
+        text:
+    license_plate:
+      example: "XX-000-X"
+      selector:
+        text:
+    permit:
+      selector:
+        device:
+          filter:
+            integration: parkstart

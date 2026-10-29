@@ -80,5 +80,73 @@
         "name": "Einde sessie"
       }
     }
+  },
+  "services": {
+    "start_session": {
+      "name": "Parkeersessie starten",
+      "description": "Start nu een parkeersessie. Dit kost geld.",
+      "fields": {
+        "license_plate": {
+          "name": "Kenteken",
+          "description": "Elk kenteken, niet alleen opgeslagen kentekens. Streepjes en hoofdletters maken niet uit."
+        },
+        "duration": {
+          "name": "Duur",
+          "description": "Hoe lang je parkeert. Gebruik dit of de eindtijd."
+        },
+        "end_time": {
+          "name": "Eindtijd",
+          "description": "Wanneer de sessie eindigt. Gebruik dit of de duur."
+        },
+        "permit": {
+          "name": "Vergunning",
+          "description": "Alleen nodig als je meer dan één vergunning hebt."
+        }
+      }
+    },
+    "stop_session": {
+      "name": "Parkeersessie stoppen",
+      "description": "Stopt een lopende parkeersessie.",
+      "fields": {
+        "session_id": {
+          "name": "Sessie-ID",
+          "description": "De sessie die je wilt stoppen. Gebruik dit of het kenteken."
+        },
+        "license_plate": {
+          "name": "Kenteken",
+          "description": "Stop de sessie van dit kenteken. Mislukt als het kenteken meer dan één sessie heeft."
+        },
+        "permit": {
+          "name": "Vergunning",
+          "description": "Alleen sessies van deze vergunning bekijken."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "permit_required": {
+      "message": "Er is meer dan één vergunning (of geen) ingesteld; kies een vergunning."
+    },
+    "invalid_permit": {
+      "message": "Het gekozen apparaat is geen ParkStart-vergunning."
+    },
+    "end_too_soon": {
+      "message": "De sessie moet minstens een minuut vanaf nu eindigen."
+    },
+    "too_long": {
+      "message": "De sessie is langer dan het maximum van {max_hours} uur (zie de opties van de integratie)."
+    },
+    "session_not_found": {
+      "message": "Geen actieve sessie gevonden voor {session}."
+    },
+    "multiple_sessions": {
+      "message": "Kenteken {plate} heeft meer dan één sessie; stop de sessie via het sessie-ID."
+    },
+    "start_failed": {
+      "message": "Starten van de parkeersessie is mislukt: {error}"
+    },
+    "stop_failed": {
+      "message": "Stoppen van de parkeersessie is mislukt: {error}"
+    }
   }
 }
