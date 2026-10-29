@@ -52,6 +52,9 @@
       "parked": {
         "name": "Parked",
         "state_attributes": {
+          "license_plate": {
+            "name": "License plate"
+          },
           "session_id": {
             "name": "Session ID"
           },

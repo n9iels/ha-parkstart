@@ -83,6 +83,7 @@ async def test_entities(hass: HomeAssistant, config_entry: MockConfigEntry, port
     assert parked.attributes["session_id"] == 3000001
     assert parked.attributes["cost"] == 0.03
     assert parked.attributes["zone"] == "BEZ_S-1"
+    assert parked.attributes["license_plate"] == "XX000X"
     assert state(hass, "sensor", "10001_XX000X_session_start") == "2026-10-29T15:44:00+00:00"
     assert state(hass, "sensor", "10001_XX000X_session_end") == "2026-10-29T15:49:00+00:00"
 
@@ -276,11 +277,12 @@ async def test_options_set_poll_interval(hass: HomeAssistant, portal: Portal) ->
 async def test_plate_from_entity_template(
     hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
 ) -> None:
-    """The README example: read a saved plate from one of its entities."""
+    """The README example: read a saved plate from its parked entity."""
     from homeassistant.helpers.template import Template
 
     await setup(hass, config_entry)
-    parked = entity_id(hass, "binary_sensor", "10001_XX000X_parked")
 
-    template = Template(f"{{{{ device_attr(device_id('{parked}'), 'serial_number') }}}}", hass)
+    template = Template("{{ state_attr('binary_sensor.visitor_a_parked', 'license_plate') }}", hass)
     assert template.async_render() == "XX000X"
+    # A plate without a session still has the attribute.
+    assert hass.states.get("binary_sensor.yy111y_parked").attributes["license_plate"] == "YY111Y"

@@ -19,8 +19,8 @@ Supported municipalities: Gouda.
 
 ## Usage
 Every saved plate is a device named after its label in the portal (e.g. "Visitor A"). It has a
-`binary_sensor.<label>_parked` entity plus session start and end sensors. The device's serial number is
-the plate itself, so a template can read the plate from any of its entities.
+`binary_sensor.<label>_parked` entity plus session start and end sensors. The parked entity has the
+plate in its `license_plate` attribute, so a template can read it.
 
 ### Start a session
 ```yaml
@@ -36,7 +36,7 @@ response_variable: parking
 # For a saved plate, by its entity: no need to type the plate.
 action: parkstart.start_session
 data:
-  license_plate: "{{ device_attr(device_id('binary_sensor.visitor_a_parked'), 'serial_number') }}"
+  license_plate: "{{ state_attr('binary_sensor.visitor_a_parked', 'license_plate') }}"
   duration: { hours: 2 }
 ```
 

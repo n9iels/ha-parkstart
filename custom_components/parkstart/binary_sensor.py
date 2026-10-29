@@ -43,9 +43,10 @@ class ParkedBinarySensor(PlateEntity, BinarySensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Details of the plate's session."""
+        """The plate, and details of its session."""
         session = self.session
         return {
+            "license_plate": self._plate,
             "session_id": session.id if session else None,
             "cost": session.cost if session else None,
             "zone": session.zone if session else None,

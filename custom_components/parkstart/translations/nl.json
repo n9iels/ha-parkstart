@@ -52,6 +52,9 @@
       "parked": {
         "name": "Geparkeerd",
         "state_attributes": {
+          "license_plate": {
+            "name": "Kenteken"
+          },
           "session_id": {
             "name": "Sessie-ID"
           },

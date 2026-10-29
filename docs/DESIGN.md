@@ -50,7 +50,7 @@ entity, editing plates, permit balance sensors.
 - A read-only mirror of the portal's saved plates, named after the plate's `comment` (falling back to the plate).
   Devices and entities are added and removed as the portal list changes. HA never edits plates.
 - `binary_sensor.<plate>_parked`: on while the plate has an active session.
-  Attributes: `session_id`, `cost` (€), `zone`.
+  Attributes: `license_plate`, `session_id`, `cost` (€), `zone`.
 - `sensor.<plate>_session_start` and `sensor.<plate>_session_end`: timestamps, **unknown** when there is no
   session. ("Unavailable" is kept for "the integration is broken".)
 - If a plate has more than one session, the entities show the active one, otherwise the earliest one.
