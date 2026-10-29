@@ -23,6 +23,11 @@ SESSIONS_URL = f"{BASE_URL}/Customer/SessionsOverview/GetParkingSessions/"
 START_URL = f"{BASE_URL}/Customer/PlanSession/StartParkingSession"
 STOP_URL = f"{BASE_URL}/Customer/PlanSession/StopParkingSession"
 
+# Entity ids of the saved plates in the fixtures (device "ParkStart Sector 1 (Example)").
+VISITOR_A = "binary_sensor.parkstart_sector_1_example_visitor_a"
+YY111Y = "binary_sensor.parkstart_sector_1_example_yy111y"
+ACTIVE_SESSIONS = "sensor.parkstart_sector_1_example_active_sessions"
+
 ENTRY_DATA = {
     CONF_MUNICIPALITY: "gouda",
     "email": "user@example.com",

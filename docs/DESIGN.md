@@ -42,27 +42,29 @@ entity, editing plates, permit balance sensors.
   gone through. (Changed 2026-10-29.)
 
 ## Devices & entities (all read-only)
-**Permit device** (one per permit; the code handles N permits, the account has one today)
-- `sensor.<permit>_active_sessions`: the number of active sessions, with the full session list as an attribute.
-  Sessions for plates that are not saved in the portal appear only here.
-
-**Plate devices** (one per saved plate, linked to the permit with `via_device`)
-- A read-only mirror of the portal's saved plates, named after the plate's `comment` (falling back to the plate).
-  Devices and entities are added and removed as the portal list changes. HA never edits plates.
-- `binary_sensor.<plate>_parked`: on while the plate has an active session.
-  Attributes: `license_plate`, `session_id`, `cost` (€), `zone`.
-- `sensor.<plate>_session_start` and `sensor.<plate>_session_end`: timestamps, **unknown** when there is no
-  session. ("Unavailable" is kept for "the integration is broken".)
-- If a plate has more than one session, the entities show the active one, otherwise the earliest one.
-- Device identifier: `(permit_id, plate)`.
+**Permit device** (one per permit; the code handles N permits, the account has one today). Named
+"ParkStart <zone>", model `Permit` (fixed, so the actions' permit selector can filter on it), the permit
+product as model id. It is the only device. (Changed 2026-10-29, see decision 22.)
+- `sensor.parkstart_<zone>_active_sessions`: the number of active sessions, with the full session list as an
+  attribute. Sessions for plates that are not saved in the portal appear only here.
+- **One `binary_sensor` per saved plate**, e.g. `binary_sensor.parkstart_<zone>_visitor_a`:
+  - a read-only mirror of the portal's saved plates, named after the plate's `comment` (falling back to the
+    plate). Entities are added, renamed and removed as the portal list changes. HA never edits plates.
+  - on while the plate has an active session.
+  - attributes: `license_plate`, `session_id`, `session_start`, `session_end` (datetimes), `cost` (€), `zone`.
+    The session attributes are `null` when there is no session.
+  - assumed to have at most one session. If the portal returns more, the entity shows the active one,
+    otherwise the earliest one.
+  - unique id: `<permit_id>_<plate>`.
+- Earlier builds made one device per plate (with parked/start/end entities); those devices are removed on setup.
 
 No buttons, selects or numbers in v1. They may be added later.
 
 ## Updates
 - `DataUpdateCoordinator`: sessions every 10 min (configurable), plates every 60 min.
 - Both refresh right after any `start_session` / `stop_session` action.
-- A local timer, scheduled from each session's end time, switches off `parked`, clears the session sensors and
-  fires `parkstart_session_ended` at the end time without waiting for the next poll.
+- A local timer, scheduled from each session's end time, switches the plate entity off, clears its session
+  attributes and fires `parkstart_session_ended` at the end time without waiting for the next poll.
   Sessions started outside HA show up on the next poll.
 - Times: the API returns `timeStartUtc`/`timeEndUtc` as **naive Europe/Amsterdam local times**, which are converted
   with `zoneinfo("Europe/Amsterdam")`. Times sent to the API are UTC ISO-8601 with `Z`, seconds zeroed.
@@ -70,10 +72,9 @@ No buttons, selects or numbers in v1. They may be added later.
 ## Actions
 ### `parkstart.start_session`
 - The plate is given as exactly one of:
-  - the standard action **target**: any entity of one saved plate (`parked`, session start/end) or its
-    device. The UI target picker only offers plate entities and devices. A target that resolves to
-    no plate or more than one plate is an error. The plate's own permit is used, so `permit` can't be
-    combined with a target.
+  - the standard action **target**: the entity of one saved plate. The UI target picker only offers plate
+    entities. A target that resolves to no plate or more than one plate (e.g. the permit device) is an
+    error. The plate's own permit is used, so `permit` can't be combined with a target.
   - `license_plate`: any plate, not only saved ones, as free text. It is normalised to upper case
     without dashes.
 - Exactly one of `duration` (HA duration selector) or `end_time` (datetime). Neither or both → error.
@@ -107,7 +108,7 @@ No buttons, selects or numbers in v1. They may be added later.
 |---|----------|-----|
 | 1 | HACS repo, client bundled | Simple to install; PyPI only matters for HA core |
 | 2 | Entry = account, device = permit, plates under permit | Plates and starts are scoped per permit |
-| 3 | Plates are a read-only mirror, one device per plate | Lets automations target a single car; the portal stays the source of truth |
+| 3 | ~~One device per plate~~ (replaced by 22); plates stay a read-only mirror | The portal stays the source of truth |
 | 4 | Actions first, with response data | The integration is a base for automations |
 | 5 | Active-sessions sensor + started/ended events | Sessions come and go; events also catch sessions started outside HA |
 | 6 | No planned sessions in v1 | Unverified API behavior, and verifying it costs money |
@@ -121,3 +122,4 @@ No buttons, selects or numbers in v1. They may be added later.
 | 15 | No dashboard entities in v1 | Keep v1 to actions and read-only entities; may come later |
 | 20 | `source` field on events | Automations can tell their own sessions apart from ones started in the app |
 | 21 | Saved plates are picked as the action target, one per call | Standard HA UX: you pick the plate to park or stop |
+| 22 | Permit = device, saved plate = one binary_sensor with session attributes (replaces 3) | One thing per car to pick; a device per plate made targets ambiguous. Trade-off: start/end are attributes, not timestamp sensors |

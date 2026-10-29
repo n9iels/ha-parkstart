@@ -11,13 +11,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .api import ParkStartAuthError, ParkStartClient, ParkStartError
 from .const import CONF_MUNICIPALITY, DOMAIN, MUNICIPALITIES
 from .coordinator import PlatesCoordinator, SessionsCoordinator
-from .entity import permit_device_info, plate_device_id, plate_device_info
+from .entity import plate_unique_id
 from .services import async_setup_services
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
@@ -66,12 +67,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ParkStartConfigEntry) ->
     await sessions.async_config_entry_first_refresh()
 
     entry.runtime_data = ParkStartData(client=client, plates=plates, sessions=sessions)
-    # Permit devices first: plate devices refer to them with via_device.
-    registry = dr.async_get(hass)
-    for permit in client.permits:
-        registry.async_get_or_create(config_entry_id=entry.entry_id, **permit_device_info(permit))
-    _sync_plate_devices(hass, entry)
-    entry.async_on_unload(plates.async_add_listener(lambda: _sync_plate_devices(hass, entry)))
+    _remove_old_plate_devices(hass, entry)
+    _remove_deleted_plates(hass, entry)
+    entry.async_on_unload(plates.async_add_listener(lambda: _remove_deleted_plates(hass, entry)))
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -87,26 +85,32 @@ async def _async_options_updated(hass: HomeAssistant, entry: ParkStartConfigEntr
 
 
 @callback
-def _sync_plate_devices(hass: HomeAssistant, entry: ParkStartConfigEntry) -> None:
-    """Mirror the portal's plates: rename changed plates, remove deleted ones (with entities).
+def _remove_deleted_plates(hass: HomeAssistant, entry: ParkStartConfigEntry) -> None:
+    """Mirror the portal's plates: remove entities of plates that are no longer saved.
 
-    New plates are added by the platforms.
+    New plates are added by the binary_sensor platform.
     """
     plates = entry.runtime_data.plates.data
     if plates is None:
         return
     current = {
-        plate_device_id(permit_id, plate.plate): plate_device_info(permit_id, plate)
+        plate_unique_id(permit_id, plate.plate)
         for permit_id, permit_plates in plates.items()
         for plate in permit_plates
     }
-    permits = {str(permit.id) for permit in entry.runtime_data.client.permits}
+    registry = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if entity.domain == Platform.BINARY_SENSOR and entity.unique_id not in current:
+            registry.async_remove(entity.entity_id)
+
+
+@callback
+def _remove_old_plate_devices(hass: HomeAssistant, entry: ParkStartConfigEntry) -> None:
+    """Remove the per-plate devices of earlier versions, with their entities.
+
+    Plates used to be devices identified by "<permit_id>_<plate>"; now only permits are devices.
+    """
     registry = dr.async_get(hass)
     for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
-        identifier = next((i for d, i in device.identifiers if d == DOMAIN), None)
-        if identifier is None or identifier in permits:
-            continue
-        if (info := current.get(identifier)) is None:
+        if any(domain == DOMAIN and "_" in ident for domain, ident in device.identifiers):
             registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
-        elif device.name != info["name"]:
-            registry.async_update_device(device.id, name=info["name"])

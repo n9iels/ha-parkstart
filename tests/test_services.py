@@ -15,12 +15,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_capture_events
 
 from custom_components.parkstart.const import DOMAIN, EVENT_SESSION_ENDED, EVENT_SESSION_STARTED
 
-from .conftest import ENTRY_DATA, LOGIN_URL, START_URL, Portal
+from .conftest import ACTIVE_SESSIONS, ENTRY_DATA, LOGIN_URL, START_URL, VISITOR_A, YY111Y, Portal
 
 NOW = datetime(2026, 10, 29, 15, 46, tzinfo=UTC)
 
@@ -44,10 +43,7 @@ async def stop(hass: HomeAssistant, **data: Any) -> None:
 
 
 def parked(hass: HomeAssistant, plate: str) -> str:
-    entity_id = er.async_get(hass).async_get_entity_id(
-        "binary_sensor", DOMAIN, f"10001_{plate}_parked"
-    )
-    return hass.states.get(entity_id).state
+    return hass.states.get({"XX000X": VISITOR_A, "YY111Y": YY111Y}[plate]).state
 
 
 @pytest.mark.usefixtures("loaded")
@@ -197,13 +193,12 @@ async def test_stop_unknown_session(hass: HomeAssistant, portal: Portal) -> None
 async def test_permit_device(hass: HomeAssistant, portal: Portal) -> None:
     registry = dr.async_get(hass)
     permit = registry.async_get_device({(DOMAIN, "10001")})
-    plate = registry.async_get_device({(DOMAIN, "10001_XX000X")})
 
     await start(hass, license_plate="YY111Y", duration={"hours": 1}, permit=permit.id)
     assert portal.started[0]["permitId"] == 10001
 
     with pytest.raises(ServiceValidationError) as err:
-        await start(hass, license_plate="YY111Y", duration={"hours": 1}, permit=plate.id)
+        await start(hass, license_plate="YY111Y", duration={"hours": 1}, permit="not-a-permit")
     assert err.value.translation_key == "invalid_permit"
     assert len(portal.started) == 1
 
@@ -230,10 +225,8 @@ def device(hass: HomeAssistant, identifier: str) -> str:
 @pytest.mark.parametrize(
     "target",
     [
-        {"entity_id": "binary_sensor.yy111y_parked"},
-        {"entity_id": "sensor.yy111y_session_end"},
-        # Several entities of the same plate still count as one plate.
-        {"entity_id": ["binary_sensor.yy111y_parked", "sensor.yy111y_session_start"]},
+        {"entity_id": YY111Y},
+        {"entity_id": [YY111Y]},
     ],
 )
 async def test_start_by_target_entity(
@@ -249,15 +242,8 @@ async def test_start_by_target_entity(
 
 
 @pytest.mark.usefixtures("loaded")
-async def test_start_by_target_device(hass: HomeAssistant, portal: Portal) -> None:
-    await start(hass, device_id=device(hass, "10001_YY111Y"), duration={"hours": 1})
-
-    assert [b["lp"] for b in portal.started] == ["YY111Y"]
-
-
-@pytest.mark.usefixtures("loaded")
 async def test_stop_by_target(hass: HomeAssistant, portal: Portal) -> None:
-    await stop(hass, entity_id="binary_sensor.visitor_a_parked")
+    await stop(hass, entity_id=VISITOR_A)
 
     assert portal.stopped == [3000001]
     assert parked(hass, "XX000X") == STATE_OFF
@@ -268,13 +254,13 @@ async def test_stop_by_target(hass: HomeAssistant, portal: Portal) -> None:
     ("target", "key"),
     [
         (
-            {"entity_id": ["binary_sensor.visitor_a_parked", "binary_sensor.yy111y_parked"]},
+            {"entity_id": [VISITOR_A, YY111Y]},
             "one_plate_target",
         ),
-        # The permit device has no plate entities.
+        # The permit device holds both plates.
         ({"device_id": "permit"}, "one_plate_target"),
         (
-            {"entity_id": "sensor.bezoeker_bewoner_sector_1_example_active_sessions"},
+            {"entity_id": ACTIVE_SESSIONS},
             "invalid_plate_entity",
         ),
         ({"entity_id": "binary_sensor.does_not_exist"}, "invalid_plate_entity"),
@@ -302,11 +288,11 @@ async def test_invalid_target(
     ("data", "key"),
     [
         (
-            {"entity_id": "binary_sensor.yy111y_parked", "license_plate": "YY111Y"},
+            {"entity_id": YY111Y, "license_plate": "YY111Y"},
             "plate_or_target",
         ),
         ({}, "plate_or_target"),
-        ({"entity_id": "binary_sensor.yy111y_parked", "permit": "abc"}, "permit_with_target"),
+        ({"entity_id": YY111Y, "permit": "abc"}, "permit_with_target"),
     ],
 )
 async def test_start_target_plate_and_permit_rules(
@@ -323,7 +309,7 @@ async def test_start_target_plate_and_permit_rules(
     "data",
     [
         {},
-        {"entity_id": "binary_sensor.visitor_a_parked", "session_id": 3000001},
+        {"entity_id": VISITOR_A, "session_id": 3000001},
         {"license_plate": "XX000X", "session_id": 3000001},
     ],
 )
@@ -334,11 +320,3 @@ async def test_stop_needs_exactly_one_way_to_pick(
         await stop(hass, **data)
     assert err.value.translation_key == "plate_target_or_session"
     assert portal.stopped == []
-
-
-@pytest.mark.usefixtures("loaded")
-async def test_permit_device_model(hass: HomeAssistant, portal: Portal) -> None:
-    """The permit selector filters on this model; plates must not match it."""
-    registry = dr.async_get(hass)
-    assert registry.async_get(device(hass, "10001")).model == "Permit"
-    assert registry.async_get(device(hass, "10001_XX000X")).model == "License plate"

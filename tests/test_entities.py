@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNKNOWN
+from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -23,7 +23,15 @@ from custom_components.parkstart.const import (
     PLATES_SCAN_INTERVAL,
 )
 
-from .conftest import ENTRY_DATA, LOGIN_URL, SESSIONS_URL, Portal
+from .conftest import (
+    ACTIVE_SESSIONS,
+    ENTRY_DATA,
+    LOGIN_URL,
+    SESSIONS_URL,
+    VISITOR_A,
+    YY111Y,
+    Portal,
+)
 
 # The recorded session runs 16:44-16:49 Amsterdam time (15:44-15:49 UTC).
 NOW = datetime(2026, 10, 29, 15, 46, tzinfo=UTC)
@@ -32,14 +40,8 @@ SESSION_END = datetime(2026, 10, 29, 15, 49, tzinfo=UTC)
 pytestmark = pytest.mark.freeze_time(NOW)
 
 
-def entity_id(hass: HomeAssistant, platform: str, unique_id: str) -> str:
-    entity = er.async_get(hass).async_get_entity_id(platform, DOMAIN, unique_id)
-    assert entity is not None, unique_id
-    return entity
-
-
-def state(hass: HomeAssistant, platform: str, unique_id: str) -> str:
-    return hass.states.get(entity_id(hass, platform, unique_id)).state
+def state(hass: HomeAssistant, entity_id: str) -> str:
+    return hass.states.get(entity_id).state
 
 
 async def setup(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -71,38 +73,67 @@ def new_session(session_id: int, plate: str, start: str, end: str) -> dict:
 async def test_entities(hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal) -> None:
     await setup(hass, config_entry)
 
-    active = hass.states.get(entity_id(hass, "sensor", "10001_active_sessions"))
+    active = hass.states.get(ACTIVE_SESSIONS)
     assert active.state == "1"
     [session] = active.attributes["sessions"]
     assert session["session_id"] == 3000001
     assert session["license_plate"] == "XX000X"
     assert session["start"] == "2026-10-29T16:44:00+01:00"
 
-    parked = hass.states.get(entity_id(hass, "binary_sensor", "10001_XX000X_parked"))
-    assert parked.state == STATE_ON
-    assert parked.attributes["session_id"] == 3000001
-    assert parked.attributes["cost"] == 0.03
-    assert parked.attributes["zone"] == "BEZ_S-1"
-    assert parked.attributes["license_plate"] == "XX000X"
-    assert state(hass, "sensor", "10001_XX000X_session_start") == "2026-10-29T15:44:00+00:00"
-    assert state(hass, "sensor", "10001_XX000X_session_end") == "2026-10-29T15:49:00+00:00"
+    plate = hass.states.get(VISITOR_A)
+    assert plate.state == STATE_ON
+    assert plate.name == "ParkStart Sector 1 (Example) Visitor A"
+    assert plate.attributes["license_plate"] == "XX000X"
+    assert plate.attributes["session_id"] == 3000001
+    assert plate.attributes["session_start"] == datetime(2026, 10, 29, 15, 44, tzinfo=UTC)
+    assert plate.attributes["session_end"] == SESSION_END
+    assert plate.attributes["cost"] == 0.03
+    assert plate.attributes["zone"] == "BEZ_S-1"
 
-    # A saved plate without a session: off and unknown, not unavailable.
-    assert state(hass, "binary_sensor", "10001_YY111Y_parked") == STATE_OFF
-    assert state(hass, "sensor", "10001_YY111Y_session_start") == STATE_UNKNOWN
-    assert state(hass, "sensor", "10001_YY111Y_session_end") == STATE_UNKNOWN
+    # A saved plate without a session: off, and the session attributes are empty.
+    unnamed = hass.states.get(YY111Y)
+    assert unnamed.state == STATE_OFF
+    assert unnamed.attributes["license_plate"] == "YY111Y"
+    assert unnamed.attributes["session_start"] is None
+    assert unnamed.attributes["session_end"] is None
 
 
-async def test_devices(hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal) -> None:
+async def test_one_device_per_permit(
+    hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
+) -> None:
     await setup(hass, config_entry)
-    registry = dr.async_get(hass)
 
-    permit = registry.async_get_device({(DOMAIN, "10001")})
-    plate = registry.async_get_device({(DOMAIN, "10001_XX000X")})
-    unnamed = registry.async_get_device({(DOMAIN, "10001_YY111Y")})
-    assert plate.name == "Visitor A"
-    assert plate.via_device_id == permit.id
-    assert unnamed.name == "YY111Y"
+    [device] = dr.async_entries_for_config_entry(dr.async_get(hass), config_entry.entry_id)
+    assert device.identifiers == {(DOMAIN, "10001")}
+    assert device.name == "ParkStart Sector 1 (Example)"
+    assert device.model == "Permit"
+    entities = er.async_entries_for_device(er.async_get(hass), device.id)
+    assert sorted(e.entity_id for e in entities) == sorted([VISITOR_A, YY111Y, ACTIVE_SESSIONS])
+
+
+async def test_old_plate_devices_are_removed(
+    hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
+) -> None:
+    """Earlier versions made one device per plate, with three entities each."""
+    devices = dr.async_get(hass)
+    entities = er.async_get(hass)
+    old = devices.async_get_or_create(
+        config_entry_id=config_entry.entry_id, identifiers={(DOMAIN, "10001_XX000X")}
+    )
+    entities.async_get_or_create(
+        "binary_sensor",
+        DOMAIN,
+        "10001_XX000X_parked",
+        config_entry=config_entry,
+        device_id=old.id,
+        suggested_object_id="visitor_a_parked",
+    )
+
+    await setup(hass, config_entry)
+
+    assert devices.async_get(old.id) is None
+    assert entities.async_get("binary_sensor.visitor_a_parked") is None
+    assert state(hass, VISITOR_A) == STATE_ON
 
 
 async def test_no_started_event_for_existing_sessions(
@@ -128,9 +159,9 @@ async def test_session_ends_locally_at_end_time(
     await hass.async_block_till_done()
 
     assert portal.count("POST", SESSIONS_URL) == polls
-    assert state(hass, "binary_sensor", "10001_XX000X_parked") == STATE_OFF
-    assert state(hass, "sensor", "10001_XX000X_session_end") == STATE_UNKNOWN
-    assert state(hass, "sensor", "10001_active_sessions") == "0"
+    assert state(hass, VISITOR_A) == STATE_OFF
+    assert hass.states.get(VISITOR_A).attributes["session_end"] is None
+    assert state(hass, ACTIVE_SESSIONS) == "0"
     [event] = ended
     assert event.data == {
         "session_id": 3000001,
@@ -146,7 +177,7 @@ async def test_session_ends_locally_at_end_time(
     # The portal still lists it for a moment: no second event, still off.
     await poll(hass, config_entry, portal)
     assert len(ended) == 1
-    assert state(hass, "binary_sensor", "10001_XX000X_parked") == STATE_OFF
+    assert state(hass, VISITOR_A) == STATE_OFF
 
 
 async def test_events_from_polling(
@@ -163,13 +194,13 @@ async def test_events_from_polling(
     await poll(hass, config_entry, portal)
     assert [(e.data["session_id"], e.data["source"]) for e in started] == [(3000002, "external")]
     # Unsaved plates only show up in the permit's session list.
-    assert state(hass, "sensor", "10001_active_sessions") == "2"
+    assert state(hass, ACTIVE_SESSIONS) == "2"
 
     # Stopped in the app.
     portal.sessions = [s for s in portal.sessions if s["id"] != 3000001]
     await poll(hass, config_entry, portal)
     assert [(e.data["session_id"], e.data["source"]) for e in ended] == [(3000001, "external")]
-    assert state(hass, "binary_sensor", "10001_XX000X_parked") == STATE_OFF
+    assert state(hass, VISITOR_A) == STATE_OFF
 
 
 async def test_event_source_home_assistant(
@@ -202,8 +233,7 @@ async def test_plate_shows_active_session_over_later_one(
     portal.apply()
     await setup(hass, config_entry)
 
-    parked = hass.states.get(entity_id(hass, "binary_sensor", "10001_XX000X_parked"))
-    assert parked.attributes["session_id"] == 3000001
+    assert hass.states.get(VISITOR_A).attributes["session_id"] == 3000001
 
 
 async def test_plates_mirror(
@@ -213,7 +243,7 @@ async def test_plates_mirror(
     freezer: FrozenDateTimeFactory,
 ) -> None:
     await setup(hass, config_entry)
-    registry = dr.async_get(hass)
+    registry = er.async_get(hass)
 
     portal.plates = [
         {"licensePlate": "XX000X", "comment": "Renamed"},
@@ -224,16 +254,19 @@ async def test_plates_mirror(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    assert registry.async_get_device({(DOMAIN, "10001_XX000X")}).name == "Renamed"
-    assert registry.async_get_device({(DOMAIN, "10001_AA123B")}).name == "New car"
-    assert state(hass, "binary_sensor", "10001_AA123B_parked") == STATE_OFF
-    assert registry.async_get_device({(DOMAIN, "10001_YY111Y")}) is None
-    assert (
-        er.async_get(hass).async_get_entity_id("binary_sensor", DOMAIN, "10001_YY111Y_parked")
-        is None
-    )
-    # The permit device stays.
-    assert registry.async_get_device({(DOMAIN, "10001")}) is not None
+    # Renamed: same entity, new name.
+    assert hass.states.get(VISITOR_A).name == "ParkStart Sector 1 (Example) Renamed"
+    # Added and removed in the portal.
+    assert state(hass, "binary_sensor.parkstart_sector_1_example_new_car") == STATE_OFF
+    assert registry.async_get(YY111Y) is None
+    assert hass.states.get(YY111Y) is None
+
+    # A removed plate that comes back gets its entity again.
+    portal.plates.append({"licensePlate": "YY111Y", "comment": ""})
+    freezer.tick(PLATES_SCAN_INTERVAL)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert state(hass, YY111Y) == STATE_OFF
 
 
 async def test_expired_session_relogs_once(
@@ -277,12 +310,12 @@ async def test_options_set_poll_interval(hass: HomeAssistant, portal: Portal) ->
 async def test_plate_from_entity_template(
     hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
 ) -> None:
-    """The README example: read a saved plate from its parked entity."""
+    """Templates can read the plate and session times from the entity."""
     from homeassistant.helpers.template import Template
 
     await setup(hass, config_entry)
 
-    template = Template("{{ state_attr('binary_sensor.visitor_a_parked', 'license_plate') }}", hass)
-    assert template.async_render() == "XX000X"
-    # A plate without a session still has the attribute.
-    assert hass.states.get("binary_sensor.yy111y_parked").attributes["license_plate"] == "YY111Y"
+    plate = Template(f"{{{{ state_attr('{VISITOR_A}', 'license_plate') }}}}", hass)
+    assert plate.async_render() == "XX000X"
+    end = Template(f"{{{{ state_attr('{VISITOR_A}', 'session_end') | as_timestamp }}}}", hass)
+    assert end.async_render() == SESSION_END.timestamp()

@@ -18,18 +18,19 @@ Supported municipalities: Gouda.
 3. Settings → Devices & services → Add integration → **ParkStart**.
 
 ## Usage
-Every saved plate is a device named after its label in the portal (e.g. "Visitor A"), with a
-`binary_sensor.<label>_parked` entity plus session start and end sensors.
+Each permit is a device ("ParkStart Sector 1"). Every saved plate is one entity on it, named after its
+label in the portal, e.g. `binary_sensor.parkstart_sector_1_visitor_a`. It is `on` while the plate is
+parked, with the attributes `license_plate`, `session_id`, `session_start`, `session_end`, `cost` and `zone`.
 
-The actions work like other Home Assistant actions: pick the saved plate as the **target** (any of its
-entities, or its device). One plate per call. A plate that isn't saved can be typed as `license_plate`.
+The actions work like other Home Assistant actions: pick the plate's entity as the **target**, one plate
+per call. A plate that isn't saved can be typed as `license_plate`.
 
 ### Start a session
 ```yaml
 # A saved plate. The response holds the session id.
 action: parkstart.start_session
 target:
-  entity_id: binary_sensor.visitor_a_parked
+  entity_id: binary_sensor.parkstart_sector_1_visitor_a
 data:
   duration: { hours: 2 }   # or end_time: "2026-10-29 18:00:00"
 response_variable: parking
@@ -48,7 +49,7 @@ data:
 # A saved plate.
 action: parkstart.stop_session
 target:
-  entity_id: binary_sensor.visitor_a_parked
+  entity_id: binary_sensor.parkstart_sector_1_visitor_a
 ```
 
 ```yaml
@@ -66,7 +67,7 @@ data:
 ```
 
 `permit` is only needed for a typed `license_plate` when the account has more than one permit.
-The parked entity also has the plate in its `license_plate` attribute, for use in templates.
+In templates, e.g. `{{ state_attr('binary_sensor.parkstart_sector_1_visitor_a', 'session_end') }}`.
 
 ### Events
 Automations can trigger on the `parkstart_session_started` and `parkstart_session_ended` events.

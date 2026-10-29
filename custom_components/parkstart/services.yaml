@@ -1,14 +1,8 @@
-# A saved plate is picked as the target: one plate (any of its entities, or its device) per call.
+# A saved plate is picked as the target: its entity, one plate per call.
 .plate_target: &plate_target
   entity:
-    - integration: parkstart
-      domain: binary_sensor
-    - integration: parkstart
-      domain: sensor
-      device_class: timestamp
-  device:
     integration: parkstart
-    model: License plate
+    domain: binary_sensor
 
 .permit_field: &permit_field
   selector:

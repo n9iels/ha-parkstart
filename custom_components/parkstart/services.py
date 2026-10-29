@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import Platform
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -38,7 +39,7 @@ ATTR_SESSION_ID = "session_id"
 
 _PLATE = vol.All(cv.string, normalize_plate, cv.string)
 
-# A saved plate is picked with the standard action target (any entity or the device of one plate);
+# A saved plate is picked with the standard action target (its entity, one plate per call);
 # any other plate is typed as license_plate. Which combinations are allowed is checked in the handlers.
 START_SCHEMA = vol.All(
     vol.Schema(
@@ -118,23 +119,20 @@ def _resolve_target(
 def _plate_of_entity(
     hass: HomeAssistant, entity_id: str
 ) -> tuple[ParkStartConfigEntry, int, str] | None:
+    """The config entry, permit id and plate of a saved plate's entity; None for other entities."""
     entity = er.async_get(hass).async_get(entity_id)
     if (
         entity is None
         or entity.platform != DOMAIN
-        or entity.device_id is None
+        or entity.domain != Platform.BINARY_SENSOR
         or entity.config_entry_id is None
         or (entry := hass.config_entries.async_get_entry(entity.config_entry_id)) is None
         or entry.state is not ConfigEntryState.LOADED
-        or (device := dr.async_get(hass).async_get(entity.device_id)) is None
     ):
         return None
-    for domain, identifier in device.identifiers:
-        # Plate devices are identified by "<permit_id>_<plate>"; permit devices by "<permit_id>".
-        if domain == DOMAIN and "_" in identifier:
-            permit_id, plate = identifier.split("_", 1)
-            return entry, int(permit_id), plate
-    return None
+    # See plate_unique_id: "<permit_id>_<plate>".
+    permit_id, plate = entity.unique_id.split("_", 1)
+    return entry, int(permit_id), plate
 
 
 def _end_time(call: ServiceCall, now: datetime) -> datetime:

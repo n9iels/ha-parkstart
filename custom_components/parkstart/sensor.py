@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ParkStartConfigEntry
-from .api import LicensePlate, ParkingSession, Permit
+from .api import ParkingSession, Permit
 from .coordinator import SessionsCoordinator
-from .entity import PlateEntity, permit_device_info, setup_plate_entities
+from .entity import permit_device_info
 
 PARALLEL_UPDATES = 0
 
@@ -28,16 +27,6 @@ async def async_setup_entry(
     async_add_entities(
         ActiveSessionsSensor(sessions, permit) for permit in entry.runtime_data.client.permits
     )
-
-    def _plate_sensors(
-        coordinator: SessionsCoordinator, permit_id: int, plate: LicensePlate
-    ) -> list[PlateEntity]:
-        return [
-            SessionTimeSensor(coordinator, permit_id, plate, "session_start"),
-            SessionTimeSensor(coordinator, permit_id, plate, "session_end"),
-        ]
-
-    setup_plate_entities(entry, async_add_entities, _plate_sensors)
 
 
 class ActiveSessionsSensor(CoordinatorEntity[SessionsCoordinator], SensorEntity):
@@ -86,16 +75,3 @@ class ActiveSessionsSensor(CoordinatorEntity[SessionsCoordinator], SensorEntity)
                 for s in self._sessions
             ]
         }
-
-
-class SessionTimeSensor(PlateEntity, SensorEntity):
-    """Start or end time of a plate's session; unknown when there is none."""
-
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
-
-    @property
-    def native_value(self) -> datetime | None:
-        """The session's start or end time."""
-        if (session := self.session) is None:
-            return None
-        return session.start if self.translation_key == "session_start" else session.end

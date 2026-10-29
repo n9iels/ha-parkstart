@@ -49,14 +49,19 @@
   },
   "entity": {
     "binary_sensor": {
-      "parked": {
-        "name": "Geparkeerd",
+      "license_plate": {
         "state_attributes": {
           "license_plate": {
             "name": "Kenteken"
           },
           "session_id": {
             "name": "Sessie-ID"
+          },
+          "session_start": {
+            "name": "Start sessie"
+          },
+          "session_end": {
+            "name": "Einde sessie"
           },
           "cost": {
             "name": "Kosten"
@@ -75,12 +80,6 @@
             "name": "Sessies"
           }
         }
-      },
-      "session_start": {
-        "name": "Start sessie"
-      },
-      "session_end": {
-        "name": "Einde sessie"
       }
     }
   },

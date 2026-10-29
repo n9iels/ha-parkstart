@@ -49,14 +49,19 @@
   },
   "entity": {
     "binary_sensor": {
-      "parked": {
-        "name": "Parked",
+      "license_plate": {
         "state_attributes": {
           "license_plate": {
             "name": "License plate"
           },
           "session_id": {
             "name": "Session ID"
+          },
+          "session_start": {
+            "name": "Session start"
+          },
+          "session_end": {
+            "name": "Session end"
           },
           "cost": {
             "name": "Cost"
@@ -75,12 +80,6 @@
             "name": "Sessions"
           }
         }
-      },
-      "session_start": {
-        "name": "Session start"
-      },
-      "session_end": {
-        "name": "Session end"
       }
     }
   },
