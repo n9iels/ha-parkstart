@@ -271,3 +271,16 @@ async def test_options_set_poll_interval(hass: HomeAssistant, portal: Portal) ->
     entry.add_to_hass(hass)
     await setup(hass, entry)
     assert entry.runtime_data.sessions.update_interval == timedelta(minutes=3)
+
+
+async def test_plate_from_entity_template(
+    hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
+) -> None:
+    """The README example: read a saved plate from one of its entities."""
+    from homeassistant.helpers.template import Template
+
+    await setup(hass, config_entry)
+    parked = entity_id(hass, "binary_sensor", "10001_XX000X_parked")
+
+    template = Template(f"{{{{ device_attr(device_id('{parked}'), 'serial_number') }}}}", hass)
+    assert template.async_render() == "XX000X"

@@ -18,19 +18,53 @@ Supported municipalities: Gouda.
 3. Settings → Devices & services → Add integration → **ParkStart**.
 
 ## Usage
+Every saved plate is a device named after its label in the portal (e.g. "Visitor A"). It has a
+`binary_sensor.<label>_parked` entity plus session start and end sensors. The device's serial number is
+the plate itself, so a template can read the plate from any of its entities.
+
+### Start a session
 ```yaml
-# Start a session; the response holds the session id.
+# By license plate (any plate, also ones that aren't saved). The response holds the session id.
 action: parkstart.start_session
 data:
   license_plate: XX-000-X
   duration: { hours: 2 }   # or end_time: "2026-10-29 18:00:00"
 response_variable: parking
+```
 
-# Stop it again (by session_id or license_plate).
+```yaml
+# For a saved plate, by its entity: no need to type the plate.
+action: parkstart.start_session
+data:
+  license_plate: "{{ device_attr(device_id('binary_sensor.visitor_a_parked'), 'serial_number') }}"
+  duration: { hours: 2 }
+```
+
+### Stop a session
+```yaml
+# By license plate. Fails when the plate has more than one session.
+action: parkstart.stop_session
+data:
+  license_plate: XX-000-X
+```
+
+```yaml
+# By the id from a start_session response.
 action: parkstart.stop_session
 data:
   session_id: "{{ parking.session_id }}"
 ```
+
+```yaml
+# For a saved plate, by its entity, only when it is parked.
+- if: "{{ is_state('binary_sensor.visitor_a_parked', 'on') }}"
+  then:
+    - action: parkstart.stop_session
+      data:
+        session_id: "{{ state_attr('binary_sensor.visitor_a_parked', 'session_id') }}"
+```
+
+### Events
 Automations can trigger on the `parkstart_session_started` and `parkstart_session_ended` events.
 Their `source` is `home_assistant` for sessions changed by these actions, `external` otherwise.
 
