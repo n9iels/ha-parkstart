@@ -1,7 +1,12 @@
 start_session:
   fields:
+    entity_id:
+      selector:
+        entity:
+          filter:
+            integration: parkstart
+            domain: binary_sensor
     license_plate:
-      required: true
       example: "XX-000-X"
       selector:
         text:
@@ -19,12 +24,18 @@ start_session:
 
 stop_session:
   fields:
-    session_id:
-      example: 3000001
+    entity_id:
       selector:
-        text:
+        entity:
+          filter:
+            integration: parkstart
+            domain: binary_sensor
     license_plate:
       example: "XX-000-X"
+      selector:
+        text:
+    session_id:
+      example: 3000001
       selector:
         text:
     permit:

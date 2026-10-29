@@ -217,3 +217,53 @@ async def test_permit_required_without_loaded_entry(hass: HomeAssistant, portal:
         await start(hass, license_plate="YY111Y", duration={"hours": 1})
     assert err.value.translation_key == "permit_required"
     assert portal.started == []
+
+
+@pytest.mark.usefixtures("loaded")
+async def test_start_by_entity(hass: HomeAssistant, portal: Portal) -> None:
+    response = await start(hass, entity_id="binary_sensor.yy111y_parked", duration={"hours": 1})
+
+    assert response == {"session_id": 3000101}
+    [body] = portal.started
+    assert body["lp"] == "YY111Y"
+    assert body["permitId"] == 10001
+    assert parked(hass, "YY111Y") == STATE_ON
+
+
+@pytest.mark.usefixtures("loaded")
+async def test_stop_by_entity(hass: HomeAssistant, portal: Portal) -> None:
+    await stop(hass, entity_id="binary_sensor.visitor_a_parked")
+
+    assert portal.stopped == [3000001]
+    assert parked(hass, "XX000X") == STATE_OFF
+
+
+@pytest.mark.usefixtures("loaded")
+@pytest.mark.parametrize(
+    "entity_id",
+    ["sensor.visitor_a_session_end", "binary_sensor.does_not_exist"],
+)
+async def test_invalid_plate_entity(hass: HomeAssistant, portal: Portal, entity_id: str) -> None:
+    with pytest.raises(ServiceValidationError) as err:
+        await start(hass, entity_id=entity_id, duration={"hours": 1})
+    assert err.value.translation_key == "invalid_plate_entity"
+    with pytest.raises(ServiceValidationError):
+        await stop(hass, entity_id=entity_id)
+    assert portal.started == []
+    assert portal.stopped == []
+
+
+@pytest.mark.usefixtures("loaded")
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"entity_id": "binary_sensor.yy111y_parked", "license_plate": "YY111Y"},
+        {"entity_id": "binary_sensor.yy111y_parked", "permit": "abc"},
+    ],
+)
+async def test_start_entity_excludes_plate_and_permit(
+    hass: HomeAssistant, portal: Portal, data: dict[str, Any]
+) -> None:
+    with pytest.raises(vol.Invalid):
+        await start(hass, duration={"hours": 1}, **data)
+    assert portal.started == []

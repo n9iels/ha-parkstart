@@ -69,17 +69,20 @@ No buttons, selects or numbers in v1. They may be added later.
 
 ## Actions
 ### `parkstart.start_session`
-- `license_plate` (required): any plate, not only saved ones. It is normalised to upper case without dashes.
-  The selector is free text: `services.yaml` selectors can't list the saved plates dynamically.
+- The plate is given as exactly one of:
+  - `entity_id`: a saved plate's `parked` entity (entity selector, so the UI lists the saved plates).
+    The entity's permit is used, so `permit` can't be combined with it.
+  - `license_plate`: any plate, not only saved ones, as free text. It is normalised to upper case
+    without dashes.
 - Exactly one of `duration` (HA duration selector) or `end_time` (datetime). Neither or both → error.
 - Rejected before calling the API if the duration is longer than the configured max.
-- `permit` (device selector): only needed when the account has more than one permit.
+- `permit` (device selector): only needed for a `license_plate` when the account has more than one permit.
 - Starts **now** only. There is no `start_time` (the planned-session behavior is unverified and costs money to verify).
 - Returns `session_id` as response data. The start call does not return it, so it is found by re-fetching
   sessions and matching on the plate.
 
 ### `parkstart.stop_session`
-- One of `session_id` or `license_plate`.
+- One of `session_id`, `entity_id` (a saved plate's `parked` entity) or `license_plate`.
 - If the plate has more than one session → error. The integration does not guess.
 
 ## Events
@@ -114,3 +117,4 @@ No buttons, selects or numbers in v1. They may be added later.
 | 14 | Any plate can be started | One-off visitors; matches the portal |
 | 15 | No dashboard entities in v1 | Keep v1 to actions and read-only entities; may come later |
 | 20 | `source` field on events | Automations can tell their own sessions apart from ones started in the app |
+| 21 | Actions accept a plate's `parked` entity | You pick the plate to park or stop; selectors can't list plates any other way |

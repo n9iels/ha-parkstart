@@ -18,31 +18,38 @@ Supported municipalities: Gouda.
 3. Settings → Devices & services → Add integration → **ParkStart**.
 
 ## Usage
-Every saved plate is a device named after its label in the portal (e.g. "Visitor A"). It has a
-`binary_sensor.<label>_parked` entity plus session start and end sensors. The parked entity has the
-plate in its `license_plate` attribute, so a template can read it.
+Every saved plate is a device named after its label in the portal (e.g. "Visitor A"), with a
+`binary_sensor.<label>_parked` entity plus session start and end sensors. To start or stop parking a
+saved plate, pick its parked entity in the action. Any other plate can be typed as `license_plate`.
 
 ### Start a session
 ```yaml
-# By license plate (any plate, also ones that aren't saved). The response holds the session id.
+# A saved plate. The response holds the session id.
 action: parkstart.start_session
 data:
-  license_plate: XX-000-X
+  entity_id: binary_sensor.visitor_a_parked
   duration: { hours: 2 }   # or end_time: "2026-10-29 18:00:00"
 response_variable: parking
 ```
 
 ```yaml
-# For a saved plate, by its entity: no need to type the plate.
+# Any plate, also one that isn't saved.
 action: parkstart.start_session
 data:
-  license_plate: "{{ state_attr('binary_sensor.visitor_a_parked', 'license_plate') }}"
+  license_plate: XX-000-X
   duration: { hours: 2 }
 ```
 
 ### Stop a session
 ```yaml
-# By license plate. Fails when the plate has more than one session.
+# A saved plate.
+action: parkstart.stop_session
+data:
+  entity_id: binary_sensor.visitor_a_parked
+```
+
+```yaml
+# Any plate. Fails when the plate has more than one session.
 action: parkstart.stop_session
 data:
   license_plate: XX-000-X
@@ -55,14 +62,7 @@ data:
   session_id: "{{ parking.session_id }}"
 ```
 
-```yaml
-# For a saved plate, by its entity, only when it is parked.
-- if: "{{ is_state('binary_sensor.visitor_a_parked', 'on') }}"
-  then:
-    - action: parkstart.stop_session
-      data:
-        session_id: "{{ state_attr('binary_sensor.visitor_a_parked', 'session_id') }}"
-```
+The parked entity also has the plate in its `license_plate` attribute, for use in templates.
 
 ### Events
 Automations can trigger on the `parkstart_session_started` and `parkstart_session_ended` events.

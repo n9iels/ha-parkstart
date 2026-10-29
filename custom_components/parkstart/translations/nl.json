@@ -89,9 +89,13 @@
       "name": "Parkeersessie starten",
       "description": "Start nu een parkeersessie. Dit kost geld.",
       "fields": {
+        "entity_id": {
+          "name": "Opgeslagen kenteken",
+          "description": "De geparkeerd-entiteit van een opgeslagen kenteken. Gebruik dit of een kenteken."
+        },
         "license_plate": {
           "name": "Kenteken",
-          "description": "Elk kenteken, niet alleen opgeslagen kentekens. Streepjes en hoofdletters maken niet uit."
+          "description": "Elk kenteken, ook niet-opgeslagen kentekens. Streepjes en hoofdletters maken niet uit."
         },
         "duration": {
           "name": "Duur",
@@ -103,7 +107,7 @@
         },
         "permit": {
           "name": "Vergunning",
-          "description": "Alleen nodig als je meer dan één vergunning hebt."
+          "description": "Alleen nodig bij een getypt kenteken als je meer dan één vergunning hebt."
         }
       }
     },
@@ -111,6 +115,10 @@
       "name": "Parkeersessie stoppen",
       "description": "Stopt een lopende parkeersessie.",
       "fields": {
+        "entity_id": {
+          "name": "Opgeslagen kenteken",
+          "description": "Stop de sessie van dit opgeslagen kenteken (de geparkeerd-entiteit)."
+        },
         "session_id": {
           "name": "Sessie-ID",
           "description": "De sessie die je wilt stoppen. Gebruik dit of het kenteken."
@@ -150,6 +158,9 @@
     },
     "stop_failed": {
       "message": "Stoppen van de parkeersessie is mislukt: {error}"
+    },
+    "invalid_plate_entity": {
+      "message": "{entity_id} is geen geparkeerd-entiteit van een ParkStart-kenteken."
     }
   }
 }

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import ATTR_ENTITY_ID, Platform
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -17,6 +18,7 @@ from homeassistant.core import (
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from .api import ParkingSession, ParkStartError, normalize_plate
@@ -34,29 +36,39 @@ ATTR_END_TIME = "end_time"
 ATTR_PERMIT = "permit"
 ATTR_SESSION_ID = "session_id"
 
+_PLATE = vol.All(cv.string, normalize_plate, cv.string)
+
+# The plate is given as text (any plate) or as a saved plate's parked entity.
 START_SCHEMA = vol.All(
     vol.Schema(
         {
-            vol.Required(ATTR_LICENSE_PLATE): vol.All(cv.string, normalize_plate, cv.string),
+            vol.Optional(ATTR_LICENSE_PLATE): _PLATE,
+            vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
             vol.Optional(ATTR_DURATION): cv.positive_time_period,
             vol.Optional(ATTR_END_TIME): cv.datetime,
             vol.Optional(ATTR_PERMIT): cv.string,
         }
     ),
+    cv.has_at_least_one_key(ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
+    cv.has_at_most_one_key(ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
     cv.has_at_least_one_key(ATTR_DURATION, ATTR_END_TIME),
     cv.has_at_most_one_key(ATTR_DURATION, ATTR_END_TIME),
+    # The entity already belongs to a permit.
+    cv.has_at_most_one_key(ATTR_ENTITY_ID, ATTR_PERMIT),
 )
 
 STOP_SCHEMA = vol.All(
     vol.Schema(
         {
             vol.Optional(ATTR_SESSION_ID): vol.Coerce(int),
-            vol.Optional(ATTR_LICENSE_PLATE): vol.All(cv.string, normalize_plate, cv.string),
+            vol.Optional(ATTR_LICENSE_PLATE): _PLATE,
+            vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
             vol.Optional(ATTR_PERMIT): cv.string,
         }
     ),
-    cv.has_at_least_one_key(ATTR_SESSION_ID, ATTR_LICENSE_PLATE),
-    cv.has_at_most_one_key(ATTR_SESSION_ID, ATTR_LICENSE_PLATE),
+    cv.has_at_least_one_key(ATTR_SESSION_ID, ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
+    cv.has_at_most_one_key(ATTR_SESSION_ID, ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
+    cv.has_at_most_one_key(ATTR_ENTITY_ID, ATTR_PERMIT),
 )
 
 
@@ -89,6 +101,25 @@ def _resolve_permit(hass: HomeAssistant, device_id: str | None) -> tuple[ParkSta
     raise _error("invalid_permit")
 
 
+def _resolve_plate_entity(
+    hass: HomeAssistant, entity_id: str
+) -> tuple[ParkStartConfigEntry, int, str]:
+    """The config entry, permit id and plate of a saved plate's parked entity."""
+    entity = er.async_get(hass).async_get(entity_id)
+    if (
+        entity is None
+        or entity.platform != DOMAIN
+        or entity.domain != Platform.BINARY_SENSOR
+        or entity.config_entry_id is None
+        or (entry := hass.config_entries.async_get_entry(entity.config_entry_id)) is None
+        or entry.state is not ConfigEntryState.LOADED
+    ):
+        raise _error("invalid_plate_entity", entity_id=entity_id)
+    # unique_id is "<permit_id>_<plate>_parked", see PlateEntity.
+    permit_id, plate = entity.unique_id.removesuffix("_parked").split("_", 1)
+    return entry, int(permit_id), plate
+
+
 def _end_time(call: ServiceCall, now: datetime) -> datetime:
     if (duration := call.data.get(ATTR_DURATION)) is not None:
         return now + duration
@@ -100,8 +131,11 @@ def _end_time(call: ServiceCall, now: datetime) -> datetime:
 
 async def _async_start_session(call: ServiceCall) -> ServiceResponse:
     hass = call.hass
-    plate: str = call.data[ATTR_LICENSE_PLATE]
-    entry, permit_id = _resolve_permit(hass, call.data.get(ATTR_PERMIT))
+    if (entity_id := call.data.get(ATTR_ENTITY_ID)) is not None:
+        entry, permit_id, plate = _resolve_plate_entity(hass, entity_id)
+    else:
+        plate = call.data[ATTR_LICENSE_PLATE]
+        entry, permit_id = _resolve_permit(hass, call.data.get(ATTR_PERMIT))
     max_duration = timedelta(
         hours=entry.options.get(CONF_MAX_DURATION, DEFAULT_MAX_DURATION.total_seconds() / 3600)
     )
@@ -139,7 +173,10 @@ async def _async_stop_session(call: ServiceCall) -> None:
     hass = call.hass
     session_id: int | None = call.data.get(ATTR_SESSION_ID)
     plate: str | None = call.data.get(ATTR_LICENSE_PLATE)
-    if (device_id := call.data.get(ATTR_PERMIT)) is not None:
+    if (entity_id := call.data.get(ATTR_ENTITY_ID)) is not None:
+        entry, permit_id, plate = _resolve_plate_entity(hass, entity_id)
+        candidates = [(entry, permit_id)]
+    elif (device_id := call.data.get(ATTR_PERMIT)) is not None:
         entry, permit_id = _resolve_permit(hass, device_id)
         candidates = [(entry, permit_id)]
     else:

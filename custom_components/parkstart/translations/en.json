@@ -89,9 +89,13 @@
       "name": "Start parking session",
       "description": "Starts a parking session now. This costs money.",
       "fields": {
+        "entity_id": {
+          "name": "Saved license plate",
+          "description": "The parked entity of a saved plate. Use either this or a license plate."
+        },
         "license_plate": {
           "name": "License plate",
-          "description": "Any license plate, not only saved ones. Dashes and case are ignored."
+          "description": "Any license plate, also ones that aren't saved. Dashes and case are ignored."
         },
         "duration": {
           "name": "Duration",
@@ -103,7 +107,7 @@
         },
         "permit": {
           "name": "Permit",
-          "description": "Only needed when you have more than one permit."
+          "description": "Only needed for a typed license plate when you have more than one permit."
         }
       }
     },
@@ -111,6 +115,10 @@
       "name": "Stop parking session",
       "description": "Stops a running parking session.",
       "fields": {
+        "entity_id": {
+          "name": "Saved license plate",
+          "description": "Stop the session of this saved plate (its parked entity)."
+        },
         "session_id": {
           "name": "Session ID",
           "description": "The session to stop. Use either this or the license plate."
@@ -150,6 +158,9 @@
     },
     "stop_failed": {
       "message": "Stopping the parking session failed: {error}"
+    },
+    "invalid_plate_entity": {
+      "message": "{entity_id} is not the parked entity of a ParkStart license plate."
     }
   }
 }
