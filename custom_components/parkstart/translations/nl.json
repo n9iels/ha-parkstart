@@ -87,15 +87,11 @@
   "services": {
     "start_session": {
       "name": "Parkeersessie starten",
-      "description": "Start nu een parkeersessie. Dit kost geld.",
+      "description": "Start nu een parkeersessie voor één kenteken. Kies een opgeslagen kenteken als doel, of typ een kenteken.",
       "fields": {
-        "entity_id": {
-          "name": "Opgeslagen kenteken",
-          "description": "De geparkeerd-entiteit van een opgeslagen kenteken. Gebruik dit of een kenteken."
-        },
         "license_plate": {
           "name": "Kenteken",
-          "description": "Elk kenteken, ook niet-opgeslagen kentekens. Streepjes en hoofdletters maken niet uit."
+          "description": "Elk kenteken, ook niet-opgeslagen kentekens. Gebruik dit of een doel. Streepjes en hoofdletters maken niet uit."
         },
         "duration": {
           "name": "Duur",
@@ -113,12 +109,8 @@
     },
     "stop_session": {
       "name": "Parkeersessie stoppen",
-      "description": "Stopt een lopende parkeersessie.",
+      "description": "Stopt een lopende parkeersessie. Kies een opgeslagen kenteken als doel, of geef een kenteken of sessie-ID op.",
       "fields": {
-        "entity_id": {
-          "name": "Opgeslagen kenteken",
-          "description": "Stop de sessie van dit opgeslagen kenteken (de geparkeerd-entiteit)."
-        },
         "session_id": {
           "name": "Sessie-ID",
           "description": "De sessie die je wilt stoppen. Gebruik dit of het kenteken."
@@ -129,7 +121,7 @@
         },
         "permit": {
           "name": "Vergunning",
-          "description": "Alleen sessies van deze vergunning bekijken."
+          "description": "Alleen sessies van deze vergunning bekijken. Niet nodig bij een doel."
         }
       }
     }
@@ -159,8 +151,10 @@
     "stop_failed": {
       "message": "Stoppen van de parkeersessie is mislukt: {error}"
     },
-    "invalid_plate_entity": {
-      "message": "{entity_id} is geen geparkeerd-entiteit van een ParkStart-kenteken."
-    }
+    "invalid_plate_entity": "{entity_id} hoort niet bij een ParkStart-kenteken.",
+    "one_plate_target": "Kies precies één kenteken als doel ({count} gevonden).",
+    "permit_with_target": "Kies geen vergunning samen met een doel: het kenteken hoort al bij een vergunning.",
+    "plate_or_target": "Kies een kenteken als doel, of typ er een, maar niet allebei.",
+    "plate_target_or_session": "Kies een kenteken als doel, of geef een kenteken of sessie-ID op: precies één daarvan."
   }
 }

@@ -13,6 +13,7 @@ import voluptuous as vol
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_capture_events
@@ -219,9 +220,26 @@ async def test_permit_required_without_loaded_entry(hass: HomeAssistant, portal:
     assert portal.started == []
 
 
+def device(hass: HomeAssistant, identifier: str) -> str:
+    found = dr.async_get(hass).async_get_device({(DOMAIN, identifier)})
+    assert found is not None, identifier
+    return found.id
+
+
 @pytest.mark.usefixtures("loaded")
-async def test_start_by_entity(hass: HomeAssistant, portal: Portal) -> None:
-    response = await start(hass, entity_id="binary_sensor.yy111y_parked", duration={"hours": 1})
+@pytest.mark.parametrize(
+    "target",
+    [
+        {"entity_id": "binary_sensor.yy111y_parked"},
+        {"entity_id": "sensor.yy111y_session_end"},
+        # Several entities of the same plate still count as one plate.
+        {"entity_id": ["binary_sensor.yy111y_parked", "sensor.yy111y_session_start"]},
+    ],
+)
+async def test_start_by_target_entity(
+    hass: HomeAssistant, portal: Portal, target: dict[str, Any]
+) -> None:
+    response = await start(hass, duration={"hours": 1}, **target)
 
     assert response == {"session_id": 3000101}
     [body] = portal.started
@@ -231,7 +249,14 @@ async def test_start_by_entity(hass: HomeAssistant, portal: Portal) -> None:
 
 
 @pytest.mark.usefixtures("loaded")
-async def test_stop_by_entity(hass: HomeAssistant, portal: Portal) -> None:
+async def test_start_by_target_device(hass: HomeAssistant, portal: Portal) -> None:
+    await start(hass, device_id=device(hass, "10001_YY111Y"), duration={"hours": 1})
+
+    assert [b["lp"] for b in portal.started] == ["YY111Y"]
+
+
+@pytest.mark.usefixtures("loaded")
+async def test_stop_by_target(hass: HomeAssistant, portal: Portal) -> None:
     await stop(hass, entity_id="binary_sensor.visitor_a_parked")
 
     assert portal.stopped == [3000001]
@@ -240,30 +265,80 @@ async def test_stop_by_entity(hass: HomeAssistant, portal: Portal) -> None:
 
 @pytest.mark.usefixtures("loaded")
 @pytest.mark.parametrize(
-    "entity_id",
-    ["sensor.visitor_a_session_end", "binary_sensor.does_not_exist"],
+    ("target", "key"),
+    [
+        (
+            {"entity_id": ["binary_sensor.visitor_a_parked", "binary_sensor.yy111y_parked"]},
+            "one_plate_target",
+        ),
+        # The permit device has no plate entities.
+        ({"device_id": "permit"}, "one_plate_target"),
+        (
+            {"entity_id": "sensor.bezoeker_bewoner_sector_1_example_active_sessions"},
+            "invalid_plate_entity",
+        ),
+        ({"entity_id": "binary_sensor.does_not_exist"}, "invalid_plate_entity"),
+    ],
 )
-async def test_invalid_plate_entity(hass: HomeAssistant, portal: Portal, entity_id: str) -> None:
+async def test_invalid_target(
+    hass: HomeAssistant, portal: Portal, target: dict[str, Any], key: str
+) -> None:
+    if target.get("device_id") == "permit":
+        target = {"device_id": device(hass, "10001")}
+    for entity_id in cv.ensure_list(target.get("entity_id")):
+        # Only the made-up entity may be missing; the others must fail for not being a plate.
+        assert entity_id == "binary_sensor.does_not_exist" or hass.states.get(entity_id)
     with pytest.raises(ServiceValidationError) as err:
-        await start(hass, entity_id=entity_id, duration={"hours": 1})
-    assert err.value.translation_key == "invalid_plate_entity"
+        await start(hass, duration={"hours": 1}, **target)
+    assert err.value.translation_key == key
     with pytest.raises(ServiceValidationError):
-        await stop(hass, entity_id=entity_id)
+        await stop(hass, **target)
     assert portal.started == []
     assert portal.stopped == []
 
 
 @pytest.mark.usefixtures("loaded")
 @pytest.mark.parametrize(
-    "data",
+    ("data", "key"),
     [
-        {"entity_id": "binary_sensor.yy111y_parked", "license_plate": "YY111Y"},
-        {"entity_id": "binary_sensor.yy111y_parked", "permit": "abc"},
+        (
+            {"entity_id": "binary_sensor.yy111y_parked", "license_plate": "YY111Y"},
+            "plate_or_target",
+        ),
+        ({}, "plate_or_target"),
+        ({"entity_id": "binary_sensor.yy111y_parked", "permit": "abc"}, "permit_with_target"),
     ],
 )
-async def test_start_entity_excludes_plate_and_permit(
+async def test_start_target_plate_and_permit_rules(
+    hass: HomeAssistant, portal: Portal, data: dict[str, Any], key: str
+) -> None:
+    with pytest.raises(ServiceValidationError) as err:
+        await start(hass, duration={"hours": 1}, **data)
+    assert err.value.translation_key == key
+    assert portal.started == []
+
+
+@pytest.mark.usefixtures("loaded")
+@pytest.mark.parametrize(
+    "data",
+    [
+        {},
+        {"entity_id": "binary_sensor.visitor_a_parked", "session_id": 3000001},
+        {"license_plate": "XX000X", "session_id": 3000001},
+    ],
+)
+async def test_stop_needs_exactly_one_way_to_pick(
     hass: HomeAssistant, portal: Portal, data: dict[str, Any]
 ) -> None:
-    with pytest.raises(vol.Invalid):
-        await start(hass, duration={"hours": 1}, **data)
-    assert portal.started == []
+    with pytest.raises(ServiceValidationError) as err:
+        await stop(hass, **data)
+    assert err.value.translation_key == "plate_target_or_session"
+    assert portal.stopped == []
+
+
+@pytest.mark.usefixtures("loaded")
+async def test_permit_device_model(hass: HomeAssistant, portal: Portal) -> None:
+    """The permit selector filters on this model; plates must not match it."""
+    registry = dr.async_get(hass)
+    assert registry.async_get(device(hass, "10001")).model == "Permit"
+    assert registry.async_get(device(hass, "10001_XX000X")).model == "License plate"

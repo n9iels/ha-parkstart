@@ -31,7 +31,8 @@ def permit_device_info(permit: Permit) -> DeviceInfo:
         identifiers={(DOMAIN, str(permit.id))},
         name=f"{permit.product} {permit.zone_description or permit.zone or permit.id}",
         manufacturer="ParkStart",
-        model=permit.product,
+        # Fixed, so the actions' permit selector can filter on it. The product is in the name.
+        model="Permit",
         serial_number=str(permit.id),
     )
 

@@ -87,15 +87,11 @@
   "services": {
     "start_session": {
       "name": "Start parking session",
-      "description": "Starts a parking session now. This costs money.",
+      "description": "Starts a parking session now for one license plate. Pick a saved plate as the target, or type any plate.",
       "fields": {
-        "entity_id": {
-          "name": "Saved license plate",
-          "description": "The parked entity of a saved plate. Use either this or a license plate."
-        },
         "license_plate": {
           "name": "License plate",
-          "description": "Any license plate, also ones that aren't saved. Dashes and case are ignored."
+          "description": "Any license plate, also ones that aren't saved. Use either this or a target. Dashes and case are ignored."
         },
         "duration": {
           "name": "Duration",
@@ -113,12 +109,8 @@
     },
     "stop_session": {
       "name": "Stop parking session",
-      "description": "Stops a running parking session.",
+      "description": "Stops a running parking session. Pick a saved plate as the target, or give a license plate or session ID.",
       "fields": {
-        "entity_id": {
-          "name": "Saved license plate",
-          "description": "Stop the session of this saved plate (its parked entity)."
-        },
         "session_id": {
           "name": "Session ID",
           "description": "The session to stop. Use either this or the license plate."
@@ -129,7 +121,7 @@
         },
         "permit": {
           "name": "Permit",
-          "description": "Only look at sessions of this permit."
+          "description": "Only look at sessions of this permit. Not needed with a target."
         }
       }
     }
@@ -159,8 +151,10 @@
     "stop_failed": {
       "message": "Stopping the parking session failed: {error}"
     },
-    "invalid_plate_entity": {
-      "message": "{entity_id} is not the parked entity of a ParkStart license plate."
-    }
+    "invalid_plate_entity": "{entity_id} does not belong to a ParkStart license plate.",
+    "one_plate_target": "Pick exactly one license plate as the target ({count} found).",
+    "permit_with_target": "Don't pick a permit together with a target: the license plate already belongs to a permit.",
+    "plate_or_target": "Pick a license plate as the target, or type one, but not both.",
+    "plate_target_or_session": "Pick a license plate as the target, or give a license plate or a session ID: exactly one of them."
   }
 }

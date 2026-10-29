@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_ENTITY_ID, Platform
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -19,6 +18,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.target import TargetSelection, async_extract_referenced_entity_ids
 from homeassistant.util import dt as dt_util
 
 from .api import ParkingSession, ParkStartError, normalize_plate
@@ -38,37 +38,29 @@ ATTR_SESSION_ID = "session_id"
 
 _PLATE = vol.All(cv.string, normalize_plate, cv.string)
 
-# The plate is given as text (any plate) or as a saved plate's parked entity.
+# A saved plate is picked with the standard action target (any entity or the device of one plate);
+# any other plate is typed as license_plate. Which combinations are allowed is checked in the handlers.
 START_SCHEMA = vol.All(
     vol.Schema(
         {
             vol.Optional(ATTR_LICENSE_PLATE): _PLATE,
-            vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
             vol.Optional(ATTR_DURATION): cv.positive_time_period,
             vol.Optional(ATTR_END_TIME): cv.datetime,
             vol.Optional(ATTR_PERMIT): cv.string,
+            **cv.TARGET_SERVICE_FIELDS,
         }
     ),
-    cv.has_at_least_one_key(ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
-    cv.has_at_most_one_key(ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
     cv.has_at_least_one_key(ATTR_DURATION, ATTR_END_TIME),
     cv.has_at_most_one_key(ATTR_DURATION, ATTR_END_TIME),
-    # The entity already belongs to a permit.
-    cv.has_at_most_one_key(ATTR_ENTITY_ID, ATTR_PERMIT),
 )
 
-STOP_SCHEMA = vol.All(
-    vol.Schema(
-        {
-            vol.Optional(ATTR_SESSION_ID): vol.Coerce(int),
-            vol.Optional(ATTR_LICENSE_PLATE): _PLATE,
-            vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
-            vol.Optional(ATTR_PERMIT): cv.string,
-        }
-    ),
-    cv.has_at_least_one_key(ATTR_SESSION_ID, ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
-    cv.has_at_most_one_key(ATTR_SESSION_ID, ATTR_LICENSE_PLATE, ATTR_ENTITY_ID),
-    cv.has_at_most_one_key(ATTR_ENTITY_ID, ATTR_PERMIT),
+STOP_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_SESSION_ID): vol.Coerce(int),
+        vol.Optional(ATTR_LICENSE_PLATE): _PLATE,
+        vol.Optional(ATTR_PERMIT): cv.string,
+        **cv.TARGET_SERVICE_FIELDS,
+    }
 )
 
 
@@ -101,23 +93,48 @@ def _resolve_permit(hass: HomeAssistant, device_id: str | None) -> tuple[ParkSta
     raise _error("invalid_permit")
 
 
-def _resolve_plate_entity(
+def _resolve_target(
+    hass: HomeAssistant, call: ServiceCall
+) -> tuple[ParkStartConfigEntry, int, str] | None:
+    """The config entry, permit id and plate of the targeted saved plate; None without a target."""
+    selection = TargetSelection(call.data)
+    if not selection.has_any_target:
+        return None
+    if ATTR_PERMIT in call.data:
+        # The plate already belongs to a permit.
+        raise _error("permit_with_target")
+    selected = async_extract_referenced_entity_ids(hass, selection)
+    plates: set[tuple[ParkStartConfigEntry, int, str]] = set()
+    for entity_id in selected.referenced | selected.indirectly_referenced:
+        if (plate := _plate_of_entity(hass, entity_id)) is not None:
+            plates.add(plate)
+        elif entity_id in selected.referenced:
+            raise _error("invalid_plate_entity", entity_id=entity_id)
+    if len(plates) != 1:
+        raise _error("one_plate_target", count=str(len(plates)))
+    return plates.pop()
+
+
+def _plate_of_entity(
     hass: HomeAssistant, entity_id: str
-) -> tuple[ParkStartConfigEntry, int, str]:
-    """The config entry, permit id and plate of a saved plate's parked entity."""
+) -> tuple[ParkStartConfigEntry, int, str] | None:
     entity = er.async_get(hass).async_get(entity_id)
     if (
         entity is None
         or entity.platform != DOMAIN
-        or entity.domain != Platform.BINARY_SENSOR
+        or entity.device_id is None
         or entity.config_entry_id is None
         or (entry := hass.config_entries.async_get_entry(entity.config_entry_id)) is None
         or entry.state is not ConfigEntryState.LOADED
+        or (device := dr.async_get(hass).async_get(entity.device_id)) is None
     ):
-        raise _error("invalid_plate_entity", entity_id=entity_id)
-    # unique_id is "<permit_id>_<plate>_parked", see PlateEntity.
-    permit_id, plate = entity.unique_id.removesuffix("_parked").split("_", 1)
-    return entry, int(permit_id), plate
+        return None
+    for domain, identifier in device.identifiers:
+        # Plate devices are identified by "<permit_id>_<plate>"; permit devices by "<permit_id>".
+        if domain == DOMAIN and "_" in identifier:
+            permit_id, plate = identifier.split("_", 1)
+            return entry, int(permit_id), plate
+    return None
 
 
 def _end_time(call: ServiceCall, now: datetime) -> datetime:
@@ -131,8 +148,11 @@ def _end_time(call: ServiceCall, now: datetime) -> datetime:
 
 async def _async_start_session(call: ServiceCall) -> ServiceResponse:
     hass = call.hass
-    if (entity_id := call.data.get(ATTR_ENTITY_ID)) is not None:
-        entry, permit_id, plate = _resolve_plate_entity(hass, entity_id)
+    target = _resolve_target(hass, call)
+    if (target is None) == (ATTR_LICENSE_PLATE not in call.data):
+        raise _error("plate_or_target")
+    if target is not None:
+        entry, permit_id, plate = target
     else:
         plate = call.data[ATTR_LICENSE_PLATE]
         entry, permit_id = _resolve_permit(hass, call.data.get(ATTR_PERMIT))
@@ -173,8 +193,11 @@ async def _async_stop_session(call: ServiceCall) -> None:
     hass = call.hass
     session_id: int | None = call.data.get(ATTR_SESSION_ID)
     plate: str | None = call.data.get(ATTR_LICENSE_PLATE)
-    if (entity_id := call.data.get(ATTR_ENTITY_ID)) is not None:
-        entry, permit_id, plate = _resolve_plate_entity(hass, entity_id)
+    target = _resolve_target(hass, call)
+    if sum((target is not None, session_id is not None, plate is not None)) != 1:
+        raise _error("plate_target_or_session")
+    if target is not None:
+        entry, permit_id, plate = target
         candidates = [(entry, permit_id)]
     elif (device_id := call.data.get(ATTR_PERMIT)) is not None:
         entry, permit_id = _resolve_permit(hass, device_id)

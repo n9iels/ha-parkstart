@@ -19,15 +19,18 @@ Supported municipalities: Gouda.
 
 ## Usage
 Every saved plate is a device named after its label in the portal (e.g. "Visitor A"), with a
-`binary_sensor.<label>_parked` entity plus session start and end sensors. To start or stop parking a
-saved plate, pick its parked entity in the action. Any other plate can be typed as `license_plate`.
+`binary_sensor.<label>_parked` entity plus session start and end sensors.
+
+The actions work like other Home Assistant actions: pick the saved plate as the **target** (any of its
+entities, or its device). One plate per call. A plate that isn't saved can be typed as `license_plate`.
 
 ### Start a session
 ```yaml
 # A saved plate. The response holds the session id.
 action: parkstart.start_session
-data:
+target:
   entity_id: binary_sensor.visitor_a_parked
+data:
   duration: { hours: 2 }   # or end_time: "2026-10-29 18:00:00"
 response_variable: parking
 ```
@@ -44,7 +47,7 @@ data:
 ```yaml
 # A saved plate.
 action: parkstart.stop_session
-data:
+target:
   entity_id: binary_sensor.visitor_a_parked
 ```
 
@@ -62,6 +65,7 @@ data:
   session_id: "{{ parking.session_id }}"
 ```
 
+`permit` is only needed for a typed `license_plate` when the account has more than one permit.
 The parked entity also has the plate in its `license_plate` attribute, for use in templates.
 
 ### Events

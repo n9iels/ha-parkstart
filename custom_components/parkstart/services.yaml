@@ -1,11 +1,25 @@
+# A saved plate is picked as the target: one plate (any of its entities, or its device) per call.
+.plate_target: &plate_target
+  entity:
+    - integration: parkstart
+      domain: binary_sensor
+    - integration: parkstart
+      domain: sensor
+      device_class: timestamp
+  device:
+    integration: parkstart
+    model: License plate
+
+.permit_field: &permit_field
+  selector:
+    device:
+      filter:
+        integration: parkstart
+        model: Permit
+
 start_session:
+  target: *plate_target
   fields:
-    entity_id:
-      selector:
-        entity:
-          filter:
-            integration: parkstart
-            domain: binary_sensor
     license_plate:
       example: "XX-000-X"
       selector:
@@ -16,20 +30,11 @@ start_session:
     end_time:
       selector:
         datetime:
-    permit:
-      selector:
-        device:
-          filter:
-            integration: parkstart
+    permit: *permit_field
 
 stop_session:
+  target: *plate_target
   fields:
-    entity_id:
-      selector:
-        entity:
-          filter:
-            integration: parkstart
-            domain: binary_sensor
     license_plate:
       example: "XX-000-X"
       selector:
@@ -38,8 +43,4 @@ stop_session:
       example: 3000001
       selector:
         text:
-    permit:
-      selector:
-        device:
-          filter:
-            integration: parkstart
+    permit: *permit_field

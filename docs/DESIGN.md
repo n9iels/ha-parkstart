@@ -70,19 +70,22 @@ No buttons, selects or numbers in v1. They may be added later.
 ## Actions
 ### `parkstart.start_session`
 - The plate is given as exactly one of:
-  - `entity_id`: a saved plate's `parked` entity (entity selector, so the UI lists the saved plates).
-    The entity's permit is used, so `permit` can't be combined with it.
+  - the standard action **target**: any entity of one saved plate (`parked`, session start/end) or its
+    device. The UI target picker only offers plate entities and devices. A target that resolves to
+    no plate or more than one plate is an error. The plate's own permit is used, so `permit` can't be
+    combined with a target.
   - `license_plate`: any plate, not only saved ones, as free text. It is normalised to upper case
     without dashes.
 - Exactly one of `duration` (HA duration selector) or `end_time` (datetime). Neither or both → error.
 - Rejected before calling the API if the duration is longer than the configured max.
-- `permit` (device selector): only needed for a `license_plate` when the account has more than one permit.
+- `permit` (device selector, filtered to permit devices by their fixed model `Permit`): only needed for a
+  `license_plate` when the account has more than one permit.
 - Starts **now** only. There is no `start_time` (the planned-session behavior is unverified and costs money to verify).
 - Returns `session_id` as response data. The start call does not return it, so it is found by re-fetching
   sessions and matching on the plate.
 
 ### `parkstart.stop_session`
-- One of `session_id`, `entity_id` (a saved plate's `parked` entity) or `license_plate`.
+- Exactly one of a target (one saved plate, as above), `license_plate` or `session_id`.
 - If the plate has more than one session → error. The integration does not guess.
 
 ## Events
@@ -117,4 +120,4 @@ No buttons, selects or numbers in v1. They may be added later.
 | 14 | Any plate can be started | One-off visitors; matches the portal |
 | 15 | No dashboard entities in v1 | Keep v1 to actions and read-only entities; may come later |
 | 20 | `source` field on events | Automations can tell their own sessions apart from ones started in the app |
-| 21 | Actions accept a plate's `parked` entity | You pick the plate to park or stop; selectors can't list plates any other way |
+| 21 | Saved plates are picked as the action target, one per call | Standard HA UX: you pick the plate to park or stop |
