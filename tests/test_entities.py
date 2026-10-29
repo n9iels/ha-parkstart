@@ -111,31 +111,6 @@ async def test_one_device_per_permit(
     assert sorted(e.entity_id for e in entities) == sorted([VISITOR_A, YY111Y, ACTIVE_SESSIONS])
 
 
-async def test_old_plate_devices_are_removed(
-    hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
-) -> None:
-    """Earlier versions made one device per plate, with three entities each."""
-    devices = dr.async_get(hass)
-    entities = er.async_get(hass)
-    old = devices.async_get_or_create(
-        config_entry_id=config_entry.entry_id, identifiers={(DOMAIN, "10001_XX000X")}
-    )
-    entities.async_get_or_create(
-        "binary_sensor",
-        DOMAIN,
-        "10001_XX000X_parked",
-        config_entry=config_entry,
-        device_id=old.id,
-        suggested_object_id="visitor_a_parked",
-    )
-
-    await setup(hass, config_entry)
-
-    assert devices.async_get(old.id) is None
-    assert entities.async_get("binary_sensor.visitor_a_parked") is None
-    assert state(hass, VISITOR_A) == STATE_ON
-
-
 async def test_no_started_event_for_existing_sessions(
     hass: HomeAssistant, config_entry: MockConfigEntry, portal: Portal
 ) -> None:

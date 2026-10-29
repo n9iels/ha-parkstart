@@ -10,7 +10,6 @@ from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.typing import ConfigType
@@ -67,7 +66,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ParkStartConfigEntry) ->
     await sessions.async_config_entry_first_refresh()
 
     entry.runtime_data = ParkStartData(client=client, plates=plates, sessions=sessions)
-    _remove_old_plate_devices(hass, entry)
     _remove_deleted_plates(hass, entry)
     entry.async_on_unload(plates.async_add_listener(lambda: _remove_deleted_plates(hass, entry)))
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
@@ -102,15 +100,3 @@ def _remove_deleted_plates(hass: HomeAssistant, entry: ParkStartConfigEntry) -> 
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
         if entity.domain == Platform.BINARY_SENSOR and entity.unique_id not in current:
             registry.async_remove(entity.entity_id)
-
-
-@callback
-def _remove_old_plate_devices(hass: HomeAssistant, entry: ParkStartConfigEntry) -> None:
-    """Remove the per-plate devices of earlier versions, with their entities.
-
-    Plates used to be devices identified by "<permit_id>_<plate>"; now only permits are devices.
-    """
-    registry = dr.async_get(hass)
-    for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
-        if any(domain == DOMAIN and "_" in ident for domain, ident in device.identifiers):
-            registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)

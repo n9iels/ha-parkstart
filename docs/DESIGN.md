@@ -56,7 +56,6 @@ product as model id. It is the only device. (Changed 2026-10-29, see decision 22
   - assumed to have at most one session. If the portal returns more, the entity shows the active one,
     otherwise the earliest one.
   - unique id: `<permit_id>_<plate>`.
-- Earlier builds made one device per plate (with parked/start/end entities); those devices are removed on setup.
 
 No buttons, selects or numbers in v1. They may be added later.
 
