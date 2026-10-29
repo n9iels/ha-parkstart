@@ -155,5 +155,14 @@
     "permit_with_target": "Don't pick a permit together with a target: the license plate already belongs to a permit.",
     "plate_or_target": "Pick a license plate as the target, or type one, but not both.",
     "plate_target_or_session": "Pick a license plate as the target, or give a license plate or a session ID: exactly one of them."
+  },
+  "device_automation": {
+    "trigger_type": {
+      "session_started": "Parking session started",
+      "session_ended": "Parking session ended"
+    },
+    "extra_fields": {
+      "source": "Started or stopped by"
+    }
   }
 }

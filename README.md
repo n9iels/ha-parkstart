@@ -69,9 +69,33 @@ data:
 `permit` is only needed for a typed `license_plate` when the account has more than one permit.
 In templates, e.g. `{{ state_attr('binary_sensor.parkstart_sector_1_visitor_a', 'session_end') }}`.
 
-### Events
-Automations can trigger on the `parkstart_session_started` and `parkstart_session_ended` events.
-Their `source` is `home_assistant` for sessions changed by these actions, `external` otherwise.
+### Automations: "when a parking session starts"
+In the automation editor: **Add trigger → Device → ParkStart Sector 1**, then pick
+**Parking session started** or **Parking session ended**. This covers every session on the permit,
+also for plates that aren't saved. Optionally limit it to sessions started or stopped by Home Assistant
+(`home_assistant`) or in the app/website (`external`).
+
+```yaml
+triggers:
+  - trigger: device
+    domain: parkstart
+    device_id: <ParkStart Sector 1 device>
+    type: session_started
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      message: "Parking started for {{ trigger.event.data.label or trigger.event.data.license_plate }}"
+```
+
+The session details are in `trigger.event.data`: `session_id`, `license_plate`, `label`, `permit_id`,
+`start`, `end`, `cost` and `source`.
+
+When it fires: right away for sessions started by the actions, at the next poll (up to 10 minutes by
+default) for sessions started in the app or website. "Ended" fires at the end time itself. Sessions that
+already exist when Home Assistant starts don't fire "started".
+
+For one saved plate, a state trigger on its entity (`off` → `on`) works too. In YAML you can also use the
+underlying events `parkstart_session_started` / `parkstart_session_ended` directly.
 
 ## Repository layout
 | Path | Contents |

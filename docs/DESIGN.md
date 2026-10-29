@@ -96,6 +96,9 @@ No buttons, selects or numbers in v1. They may be added later.
   by polling (started in the app or website) or the session reached its end time.
 - Both events are found by diffing the session list between polls. `ended` also fires from the local
   end-time timer or when a session drops off the list.
+- **Device triggers** on the permit device, "Parking session started" / "Parking session ended", wrap these
+  events (filtered on `permit_id`, optionally on `source`), so automations can be made in the UI without
+  typing an event name. The event data is available as `trigger.event.data`. (Added 2026-10-29.)
 
 ## Tests
 - `pytest-homeassistant-custom-component` with anonymised recorded JSON/HTML fixtures and a mocked HTTP layer.
@@ -122,3 +125,4 @@ No buttons, selects or numbers in v1. They may be added later.
 | 20 | `source` field on events | Automations can tell their own sessions apart from ones started in the app |
 | 21 | Saved plates are picked as the action target, one per call | Standard HA UX: you pick the plate to park or stop |
 | 22 | Permit = device, saved plate = one binary_sensor with session attributes (replaces 3) | One thing per car to pick; a device per plate made targets ambiguous. Trade-off: start/end are attributes, not timestamp sensors |
+| 23 | Device triggers for session started/ended | Events alone don't show up in the automation editor; users should be able to click an automation together |

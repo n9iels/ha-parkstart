@@ -155,5 +155,14 @@
     "permit_with_target": "Kies geen vergunning samen met een doel: het kenteken hoort al bij een vergunning.",
     "plate_or_target": "Kies een kenteken als doel, of typ er een, maar niet allebei.",
     "plate_target_or_session": "Kies een kenteken als doel, of geef een kenteken of sessie-ID op: precies één daarvan."
+  },
+  "device_automation": {
+    "trigger_type": {
+      "session_started": "Parkeersessie gestart",
+      "session_ended": "Parkeersessie beëindigd"
+    },
+    "extra_fields": {
+      "source": "Gestart of gestopt door"
+    }
   }
 }
