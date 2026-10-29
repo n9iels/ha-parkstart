@@ -1,0 +1,48 @@
+meta {
+  name: Get parking sessions
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/Customer/SessionsOverview/GetParkingSessions/
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  X-Requested-With: XMLHttpRequest
+  Origin: {{baseUrl}}
+  Referer: {{baseUrl}}/Customer/SessionsOverview/Index/
+}
+
+body:form-urlencoded {
+  skip: 0
+  take: 50
+  requireTotalCount: true
+  cstId: 0
+  vstId: 0
+  searchString: 
+  startIndex: 0
+  pageSize: 0
+  sortColumn: 
+  sortDirection: 
+  totalRows: 0
+  pageCount: -2147483648
+}
+
+script:post-response {
+  const data = (res.getBody() || {}).data || [];
+  if (data.length) bru.setVar("parkingSessionId", data[0].id);
+}
+
+tests {
+  test("has data array", function () {
+    expect(res.getBody().data).to.be.an("array");
+  });
+}
+
+docs {
+  Active + planned sessions. timeStartUtc/timeEndUtc are Europe/Amsterdam LOCAL time despite the name.
+  Sets runtime var parkingSessionId to the first session.
+}

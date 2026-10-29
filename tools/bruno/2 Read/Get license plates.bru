@@ -1,0 +1,27 @@
+meta {
+  name: Get license plates
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/Customer/PlanSession/GetLicensePlates
+  body: json
+  auth: none
+}
+
+headers {
+  X-Requested-With: XMLHttpRequest
+  Origin: {{baseUrl}}
+  Referer: {{baseUrl}}/Customer/PlanSession
+}
+
+body:json {
+  {"permitId": {{permitId}}}
+}
+
+tests {
+  test("plates returned", function () {
+    expect(res.getBody().licensePlates).to.be.an("array");
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Stop parking session
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/Customer/PlanSession/StopParkingSession
+  body: json
+  auth: none
+}
+
+headers {
+  X-Requested-With: XMLHttpRequest
+  Origin: {{baseUrl}}
+  Referer: {{baseUrl}}/Customer/SessionsOverview/Index/
+}
+
+body:json {
+  {"parkingSessionId": {{parkingSessionId}}}
+}
+
+tests {
+  test("successful", function () {
+    expect(res.getBody().successful).to.equal(true);
+  });
+}

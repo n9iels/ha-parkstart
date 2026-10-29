@@ -1,0 +1,49 @@
+meta {
+  name: Start parking session (costs money)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/Customer/PlanSession/StartParkingSession
+  body: json
+  auth: none
+}
+
+headers {
+  X-Requested-With: XMLHttpRequest
+  Origin: {{baseUrl}}
+  Referer: {{baseUrl}}/Customer/PlanSession
+}
+
+body:json {
+  {}
+}
+
+script:pre-request {
+  // Body = addItem template from "Plan session page" with plate + times filled in
+  const tpl = JSON.parse(bru.getVar("addItemTemplate") || "{}");
+  const permitId = Number(bru.getVar("permitId"));
+  const start = new Date();
+  start.setSeconds(0, 0);
+  const end = new Date(start.getTime() + Number(bru.getCollectionVar("durationMinutes")) * 60000);
+  Object.assign(tpl, {
+    permitId: permitId,
+    currentPermitId: permitId,
+    lp: bru.getCollectionVar("licensePlate"),
+    timeStart: start.toISOString(),
+    timeEnd: end.toISOString(),
+    saveMode: true
+  });
+  req.setBody(tpl);
+}
+
+tests {
+  test("successful", function () {
+    expect(res.getBody().successful).to.equal(true);
+  });
+}
+
+docs {
+  Run "Plan session page" first. Response: {"successful":true} (no session id: use Get parking sessions).
+}

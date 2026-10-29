@@ -1,0 +1,1150 @@
+{
+  "info": {
+    "name": "ParkStart Gouda (parkpermit.eu)",
+    "description": "Unofficial headless API for https://parkstart-gouda.parkpermit.eu (ARS T&TT ParkStart). Run Auth 1→2 first; Postman's cookie jar keeps the session. See docs/API.md for details.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "1. Get login page (CSRF token)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Loads the login form. Sets the `__RequestVerificationToken` cookie and extracts the hidden form token into `csrfToken`.\n\nNOTE: if you are still logged in (Postman keeps cookies between runs), the server logs you out first: `302 → /` with the auth cookie cleared, then the login form. Redirects must be followed for this request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const html = pm.response.text();",
+                  "const input = (html.match(/<input[^>]*name=\"__RequestVerificationToken\"[^>]*>/) || [])[0];",
+                  "const m = input && input.match(/value=\"([^\"]+)\"/);",
+                  "if (!m) {",
+                  "  console.log('No CSRF token. Status:', pm.response.code, pm.response.status);",
+                  "  console.log('Headers:', pm.response.headers.toObject());",
+                  "  console.log('Body (first 1500 chars):', html.substring(0, 1500));",
+                  "  if (/g-recaptcha/.test(html) && /ShowCaptcha\" type=\"hidden\" value=\"True\"/.test(html))",
+                  "    console.log('Captcha is enabled (too many failed logins). Log in once in a browser, then retry.');",
+                  "  if (pm.response.code === 302)",
+                  "    console.log('Got a redirect: enable \"Automatically follow redirects\" (Settings) or clear cookies for this domain.');",
+                  "}",
+                  "pm.test('csrf token found', () => pm.expect(m, 'see Postman console for the response').to.be.ok);",
+                  "if (m) pm.collectionVariables.set('csrfToken', m[1]);"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "followRedirects": true,
+            "maxRedirects": 5
+          },
+          "response": [
+            {
+              "name": "200 login form (excerpt)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "html",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                },
+                {
+                  "key": "Set-Cookie",
+                  "value": "__RequestVerificationToken=<redacted>; path=/; secure; HttpOnly; SameSite=Strict"
+                }
+              ],
+              "body": "<form action=\"/\" aria-label=\"Inloggen\" method=\"post\"><input name=\"__RequestVerificationToken\" type=\"hidden\" value=\"<redacted>\" />\n  ... <input id=\"ShowCaptcha\" name=\"ShowCaptcha\" type=\"hidden\" value=\"False\" /> ...\n</form>",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": []
+                },
+                "description": "Loads the login form. Sets the `__RequestVerificationToken` cookie and extracts the hidden form token into `csrfToken`.\n\nNOTE: if you are still logged in (Postman keeps cookies between runs), the server logs you out first: `302 → /` with the auth cookie cleared, then the login form. Redirects must be followed for this request."
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Form login. Success = **302 to /Customer/PlanSession** + `.AspNet._SSPAuthCookie` cookie. A failed login returns 200 with the form again. Repeated failures enable reCAPTCHA, so do NOT retry in a loop.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "__RequestVerificationToken",
+                  "value": "{{csrfToken}}"
+                },
+                {
+                  "key": "Email",
+                  "value": "{{email}}"
+                },
+                {
+                  "key": "Password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "ReturnUrl",
+                  "value": ""
+                },
+                {
+                  "key": "ShowCaptcha",
+                  "value": "False"
+                },
+                {
+                  "key": "ScreenWidth",
+                  "value": "1440"
+                },
+                {
+                  "key": "ScreenHeight",
+                  "value": "900"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('302 to PlanSession', () => {",
+                  "  pm.response.to.have.status(302);",
+                  "  pm.expect(pm.response.headers.get('Location')).to.include('/Customer/PlanSession');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "response": [
+            {
+              "name": "302 success",
+              "status": "Found",
+              "code": 302,
+              "_postman_previewlanguage": "html",
+              "header": [
+                {
+                  "key": "Location",
+                  "value": "/Customer/PlanSession"
+                },
+                {
+                  "key": "Set-Cookie",
+                  "value": ".AspNet._SSPAuthCookie=<redacted>; path=/; secure; HttpOnly; SameSite=Lax"
+                }
+              ],
+              "body": "<html><head><title>Object moved</title></head><body>\n<h2>Object moved to <a href=\"/Customer/PlanSession\">here</a>.</h2>\n</body></html>",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": []
+                },
+                "description": "Form login. Success = **302 to /Customer/PlanSession** + `.AspNet._SSPAuthCookie` cookie. A failed login returns 200 with the form again. Repeated failures enable reCAPTCHA, so do NOT retry in a loop.",
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "__RequestVerificationToken",
+                      "value": "{{csrfToken}}"
+                    },
+                    {
+                      "key": "Email",
+                      "value": "{{email}}"
+                    },
+                    {
+                      "key": "Password",
+                      "value": "{{password}}"
+                    },
+                    {
+                      "key": "ReturnUrl",
+                      "value": ""
+                    },
+                    {
+                      "key": "ShowCaptcha",
+                      "value": "False"
+                    },
+                    {
+                      "key": "ScreenWidth",
+                      "value": "1440"
+                    },
+                    {
+                      "key": "ScreenHeight",
+                      "value": "900"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Read",
+      "item": [
+        {
+          "name": "3. Plan session page (permits + addItem template)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/Customer/PlanSession",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Customer",
+                "PlanSession"
+              ]
+            },
+            "description": "HTML page. The view model is embedded as JSON in `planSession.init('...')`. Contains `permitList` (id, permitProduct, paidParkingAreaIdDescription, unlimitedTimeBalance, ...) and the `addItem` template used as the StartParkingSession body. Sets `permitId` and `addItemTemplate`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const m = pm.response.text().match(/planSession\\.init\\('([\\s\\S]*?)'\\);/);",
+                  "pm.test('view model found (logged in)', () => pm.expect(m).to.not.be.null);",
+                  "const model = JSON.parse(m[1].replace(/\\\\\"/g, '\"').replace(/\\\\\\\\/g, '\\\\'));",
+                  "console.log('permits', model.permitList);",
+                  "pm.collectionVariables.set('permitId', model.permitList[0].id);",
+                  "pm.collectionVariables.set('addItemTemplate', JSON.stringify(model.addItem));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 page (excerpt with permitList)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "html",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                }
+              ],
+              "body": "<!-- excerpt: the full page is ~35kB of HTML; the data lives in this inline script -->\n<script>\n  require(['views/customer/planSession/planSession'], function (planSession) {\nplanSession.init('{\\\"permitList\\\": [{\\\"id\\\": 10001, \\\"customerId\\\": 30001, \\\"permitMediaCode\\\": null, \\\"cli\\\": null, \\\"paidParkingAreaId\\\": \\\"BEZ_S-1\\\", \\\"status\\\": \\\"Active\\\", \\\"statusId\\\": 41, \\\"permitAreaDescription\\\": null, \\\"canStopActive\\\": false, \\\"timeBalance\\\": 10000, \\\"permitProduct\\\": \\\"Bezoeker bewoner\\\", \\\"ppCode\\\": \\\"RGBZ\\\", \\\"ppTranslation\\\": null, \\\"permitProductId\\\": 0, \\\"pin\\\": null, \\\"sospesPermitPermitId\\\": \\\"1000000001\\\", \\\"permitAreaId\\\": \\\"BEZ_S-1\\\", \\\"nprAreaManagerId\\\": null, \\\"paidParkingAreaIdDescription\\\": \\\"Sector 1 (Example)\\\", \\\"permitAreaIdDescription\\\": null, \\\"validFromDateUtc\\\": \\\"2025-01-01T23:00:00\\\", \\\"validUntilDateUtc\\\": \\\"2075-01-01T23:00:00\\\", \\\"unlimitedTimeBalance\\\": true, \\\"isDeleted\\\": false, \\\"permitProductAndSospesNumber\\\": \\\"Bezoeker bewoner / 1000000001 - Gebruik\\\", \\\"isSynced\\\": null, \\\"backOfficeCanAddEditPermit\\\": false, \\\"backOfficeCanTerminate\\\": false, \\\"numOfSessions\\\": null, \\\"allowDynamicNumOfSessions\\\": false, \\\"isBusinessPermit\\\": false, \\\"displayExpression\\\": \\\"Bezoeker bewoner - Sector 1 (Example) / 1000000001 - Gebruik\\\", \\\"authSuffix\\\": \\\" - Gebruik\\\", \\\"totalParkingRights\\\": 0, \\\"isGaragePermit\\\": false}], \\\"addItem\\\": \\\"{ ...addItem template, see StartParkingSession body... }\\\", \\\"licensePlates\\\": [], \\\"customerId\\\": 0, \\\"area\\\": \\\"Customer\\\", \\\"fillEndTime\\\": true, \\\"validateLpOnRdw\\\": true}');\n  });\n</script>",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/Customer/PlanSession",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "Customer",
+                    "PlanSession"
+                  ]
+                },
+                "description": "HTML page. The view model is embedded as JSON in `planSession.init('...')`. Contains `permitList` (id, permitProduct, paidParkingAreaIdDescription, unlimitedTimeBalance, ...) and the `addItem` template used as the StartParkingSession body. Sets `permitId` and `addItemTemplate`."
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Get license plates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Requested-With",
+                "value": "XMLHttpRequest"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Referer",
+                "value": "{{baseUrl}}/Customer/PlanSession"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/Customer/PlanSession/GetLicensePlates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Customer",
+                "PlanSession",
+                "GetLicensePlates"
+              ]
+            },
+            "description": "Saved (favourite) plates for a permit: licensePlate, comment, brand, model, vehicleColor, hexCode.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"permitId\": {{permitId}}}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 plates",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"licensePlates\": [\n    {\n      \"licensePlate\": \"XX000X\",\n      \"comment\": \"Visitor A\",\n      \"brand\": \"VOLKSWAGEN\",\n      \"model\": \"GOLF\",\n      \"vehicleName\": \"VOLKSWAGEN GOLF\",\n      \"vehicleColorNl\": \"ROOD\",\n      \"vehicleColorEn\": \"Red\",\n      \"vehicleColor\": \"ROOD\",\n      \"hexCode\": \"#FF0000\"\n    },\n    {\n      \"licensePlate\": \"XX001X\",\n      \"comment\": \"Visitor B\",\n      \"brand\": null,\n      \"model\": null,\n      \"vehicleName\": \"\",\n      \"vehicleColorNl\": null,\n      \"vehicleColorEn\": null,\n      \"vehicleColor\": null,\n      \"hexCode\": null\n    }\n  ]\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Requested-With",
+                    "value": "XMLHttpRequest"
+                  },
+                  {
+                    "key": "Origin",
+                    "value": "{{baseUrl}}"
+                  },
+                  {
+                    "key": "Referer",
+                    "value": "{{baseUrl}}/Customer/PlanSession"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json; charset=utf-8"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/Customer/PlanSession/GetLicensePlates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "Customer",
+                    "PlanSession",
+                    "GetLicensePlates"
+                  ]
+                },
+                "description": "Saved (favourite) plates for a permit: licensePlate, comment, brand, model, vehicleColor, hexCode.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"permitId\": {{permitId}}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Get parking sessions (active/planned)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Requested-With",
+                "value": "XMLHttpRequest"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Referer",
+                "value": "{{baseUrl}}/Customer/SessionsOverview/Index/"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded; charset=UTF-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/Customer/SessionsOverview/GetParkingSessions/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Customer",
+                "SessionsOverview",
+                "GetParkingSessions"
+              ]
+            },
+            "description": "Lists current and planned sessions (ended sessions disappear). DevExtreme load options + filter, form-encoded. NOTE: `timeStartUtc`/`timeEndUtc` are actually Europe/Amsterdam LOCAL time despite the name. Sets `parkingSessionId` to the first session found.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "take",
+                  "value": "50"
+                },
+                {
+                  "key": "requireTotalCount",
+                  "value": "true"
+                },
+                {
+                  "key": "cstId",
+                  "value": "0"
+                },
+                {
+                  "key": "vstId",
+                  "value": "0"
+                },
+                {
+                  "key": "searchString",
+                  "value": ""
+                },
+                {
+                  "key": "startIndex",
+                  "value": "0"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "0"
+                },
+                {
+                  "key": "sortColumn",
+                  "value": ""
+                },
+                {
+                  "key": "sortDirection",
+                  "value": ""
+                },
+                {
+                  "key": "totalRows",
+                  "value": "0"
+                },
+                {
+                  "key": "pageCount",
+                  "value": "-2147483648"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "pm.test('has data array', () => pm.expect(r.data).to.be.an('array'));",
+                  "if (r.data.length) pm.collectionVariables.set('parkingSessionId', r.data[0].id);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 one active session",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"recordsFiltered\": 1,\n  \"recordsTotal\": 1,\n  \"data\": [\n    {\n      \"id\": 3000001,\n      \"permitId\": 10001,\n      \"timeStartUtc\": \"2026-10-29T16:44:00\",\n      \"timeEndUtc\": \"2026-10-29T16:49:00\",\n      \"status\": null,\n      \"startMessage\": \"user@example.com\",\n      \"stopMessage\": null,\n      \"costMoney\": 0.03,\n      \"costTime\": 5,\n      \"parkingRegime\": null,\n      \"hourRate\": null,\n      \"lp\": \"XX000X\",\n      \"psRightId\": \"2000000001\",\n      \"name\": \"Bezoeker bewoner\",\n      \"permitNumber\": \"1000000001\",\n      \"lpName\": null,\n      \"unlimitedTimeBalance\": true,\n      \"isActive\": true,\n      \"isGaragePermit\": false,\n      \"lpDescription\": \"Visitor A\",\n      \"permitAreaDescription\": \"Sector 1 (Example)\",\n      \"zoneCode\": \"BEZ_S-1\",\n      \"authorizationType\": 1,\n      \"email\": \"user@example.com\",\n      \"fullName\": \"\",\n      \"user\": null,\n      \"userType\": null,\n      \"initials\": null,\n      \"customerPays\": true,\n      \"isPermitOwner\": false,\n      \"visitorName\": \"\",\n      \"startUserRoleId\": 2,\n      \"discountCode\": null,\n      \"anonymousVisitorDescription\": null\n    }\n  ]\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Requested-With",
+                    "value": "XMLHttpRequest"
+                  },
+                  {
+                    "key": "Origin",
+                    "value": "{{baseUrl}}"
+                  },
+                  {
+                    "key": "Referer",
+                    "value": "{{baseUrl}}/Customer/SessionsOverview/Index/"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded; charset=UTF-8"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/Customer/SessionsOverview/GetParkingSessions/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "Customer",
+                    "SessionsOverview",
+                    "GetParkingSessions"
+                  ]
+                },
+                "description": "Lists current and planned sessions (ended sessions disappear). DevExtreme load options + filter, form-encoded. NOTE: `timeStartUtc`/`timeEndUtc` are actually Europe/Amsterdam LOCAL time despite the name. Sets `parkingSessionId` to the first session found.",
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "skip",
+                      "value": "0"
+                    },
+                    {
+                      "key": "take",
+                      "value": "50"
+                    },
+                    {
+                      "key": "requireTotalCount",
+                      "value": "true"
+                    },
+                    {
+                      "key": "cstId",
+                      "value": "0"
+                    },
+                    {
+                      "key": "vstId",
+                      "value": "0"
+                    },
+                    {
+                      "key": "searchString",
+                      "value": ""
+                    },
+                    {
+                      "key": "startIndex",
+                      "value": "0"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "0"
+                    },
+                    {
+                      "key": "sortColumn",
+                      "value": ""
+                    },
+                    {
+                      "key": "sortDirection",
+                      "value": ""
+                    },
+                    {
+                      "key": "totalRows",
+                      "value": "0"
+                    },
+                    {
+                      "key": "pageCount",
+                      "value": "-2147483648"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "200 no sessions",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"recordsFiltered\": 0,\n  \"recordsTotal\": 0,\n  \"data\": []\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Requested-With",
+                    "value": "XMLHttpRequest"
+                  },
+                  {
+                    "key": "Origin",
+                    "value": "{{baseUrl}}"
+                  },
+                  {
+                    "key": "Referer",
+                    "value": "{{baseUrl}}/Customer/SessionsOverview/Index/"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded; charset=UTF-8"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/Customer/SessionsOverview/GetParkingSessions/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "Customer",
+                    "SessionsOverview",
+                    "GetParkingSessions"
+                  ]
+                },
+                "description": "Lists current and planned sessions (ended sessions disappear). DevExtreme load options + filter, form-encoded. NOTE: `timeStartUtc`/`timeEndUtc` are actually Europe/Amsterdam LOCAL time despite the name. Sets `parkingSessionId` to the first session found.",
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "skip",
+                      "value": "0"
+                    },
+                    {
+                      "key": "take",
+                      "value": "50"
+                    },
+                    {
+                      "key": "requireTotalCount",
+                      "value": "true"
+                    },
+                    {
+                      "key": "cstId",
+                      "value": "0"
+                    },
+                    {
+                      "key": "vstId",
+                      "value": "0"
+                    },
+                    {
+                      "key": "searchString",
+                      "value": ""
+                    },
+                    {
+                      "key": "startIndex",
+                      "value": "0"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "0"
+                    },
+                    {
+                      "key": "sortColumn",
+                      "value": ""
+                    },
+                    {
+                      "key": "sortDirection",
+                      "value": ""
+                    },
+                    {
+                      "key": "totalRows",
+                      "value": "0"
+                    },
+                    {
+                      "key": "pageCount",
+                      "value": "-2147483648"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "302 missing AJAX headers / expired session",
+              "status": "Found",
+              "code": 302,
+              "_postman_previewlanguage": "html",
+              "header": [
+                {
+                  "key": "Location",
+                  "value": "https://parkstart-gouda.parkpermit.eu/Error/Error"
+                }
+              ],
+              "body": "<html><head><title>Object moved</title></head><body>\n<h2>Object moved to <a href=\"https://parkstart-gouda.parkpermit.eu/Error/Error\">here</a>.</h2>\n</body></html>",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Requested-With",
+                    "value": "XMLHttpRequest"
+                  },
+                  {
+                    "key": "Origin",
+                    "value": "{{baseUrl}}"
+                  },
+                  {
+                    "key": "Referer",
+                    "value": "{{baseUrl}}/Customer/SessionsOverview/Index/"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded; charset=UTF-8"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/Customer/SessionsOverview/GetParkingSessions/",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "Customer",
+                    "SessionsOverview",
+                    "GetParkingSessions"
+                  ]
+                },
+                "description": "Lists current and planned sessions (ended sessions disappear). DevExtreme load options + filter, form-encoded. NOTE: `timeStartUtc`/`timeEndUtc` are actually Europe/Amsterdam LOCAL time despite the name. Sets `parkingSessionId` to the first session found.",
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "skip",
+                      "value": "0"
+                    },
+                    {
+                      "key": "take",
+                      "value": "50"
+                    },
+                    {
+                      "key": "requireTotalCount",
+                      "value": "true"
+                    },
+                    {
+                      "key": "cstId",
+                      "value": "0"
+                    },
+                    {
+                      "key": "vstId",
+                      "value": "0"
+                    },
+                    {
+                      "key": "searchString",
+                      "value": ""
+                    },
+                    {
+                      "key": "startIndex",
+                      "value": "0"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "0"
+                    },
+                    {
+                      "key": "sortColumn",
+                      "value": ""
+                    },
+                    {
+                      "key": "sortDirection",
+                      "value": ""
+                    },
+                    {
+                      "key": "totalRows",
+                      "value": "0"
+                    },
+                    {
+                      "key": "pageCount",
+                      "value": "-2147483648"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sessions (write)",
+      "item": [
+        {
+          "name": "6. Start parking session  ⚠ costs money",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Requested-With",
+                "value": "XMLHttpRequest"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Referer",
+                "value": "{{baseUrl}}/Customer/PlanSession"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/Customer/PlanSession/StartParkingSession",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Customer",
+                "PlanSession",
+                "StartParkingSession"
+              ]
+            },
+            "description": "Registers a visitor session. Body = the `addItem` template from request 3 with permitId, lp, timeStart, timeEnd (ISO UTC with Z) filled in. The pre-request script builds it from `licensePlate` and `durationMinutes`. Response: `{\"successful\":true}`; on failure `successful:false` + `notifications`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{startBody}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const tpl = JSON.parse(pm.collectionVariables.get('addItemTemplate') || '{}');",
+                  "const permitId = Number(pm.collectionVariables.get('permitId'));",
+                  "const start = new Date(); start.setSeconds(0, 0);",
+                  "const end = new Date(start.getTime() + Number(pm.collectionVariables.get('durationMinutes')) * 60000);",
+                  "Object.assign(tpl, {",
+                  "  permitId, currentPermitId: permitId,",
+                  "  lp: pm.collectionVariables.get('licensePlate'),",
+                  "  timeStart: start.toISOString(), timeEnd: end.toISOString(),",
+                  "  saveMode: true",
+                  "});",
+                  "pm.collectionVariables.set('startBody', JSON.stringify(tpl));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('successful', () => pm.expect(pm.response.json().successful).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 started",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"successful\": true\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Requested-With",
+                    "value": "XMLHttpRequest"
+                  },
+                  {
+                    "key": "Origin",
+                    "value": "{{baseUrl}}"
+                  },
+                  {
+                    "key": "Referer",
+                    "value": "{{baseUrl}}/Customer/PlanSession"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json; charset=utf-8"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/Customer/PlanSession/StartParkingSession",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "Customer",
+                    "PlanSession",
+                    "StartParkingSession"
+                  ]
+                },
+                "description": "Registers a visitor session. Body = the `addItem` template from request 3 with permitId, lp, timeStart, timeEnd (ISO UTC with Z) filled in. The pre-request script builds it from `licensePlate` and `durationMinutes`. Response: `{\"successful\":true}`; on failure `successful:false` + `notifications`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{{startBody}}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Stop parking session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Requested-With",
+                "value": "XMLHttpRequest"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Referer",
+                "value": "{{baseUrl}}/Customer/SessionsOverview/Index/"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/Customer/PlanSession/StopParkingSession",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Customer",
+                "PlanSession",
+                "StopParkingSession"
+              ]
+            },
+            "description": "Stops an active session (or cancels a planned one). Get the id from request 5.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"parkingSessionId\": {{parkingSessionId}}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('successful', () => pm.expect(pm.response.json().successful).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 stopped",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "body": "{\n  \"successful\": true\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Requested-With",
+                    "value": "XMLHttpRequest"
+                  },
+                  {
+                    "key": "Origin",
+                    "value": "{{baseUrl}}"
+                  },
+                  {
+                    "key": "Referer",
+                    "value": "{{baseUrl}}/Customer/SessionsOverview/Index/"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json; charset=utf-8"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/Customer/PlanSession/StopParkingSession",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "Customer",
+                    "PlanSession",
+                    "StopParkingSession"
+                  ]
+                },
+                "description": "Stops an active session (or cancels a planned one). Get the id from request 5.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"parkingSessionId\": {{parkingSessionId}}}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Extra (unverified)",
+      "item": [
+        {
+          "name": "Get vehicle info (unverified)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Requested-With",
+                "value": "XMLHttpRequest"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Referer",
+                "value": "{{baseUrl}}/Customer/PlanSession"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/Customer/PlanSession/GetVehicleInfo?permitId={{permitId}}&licensePlate={{licensePlate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Customer",
+                "PlanSession",
+                "GetVehicleInfo"
+              ],
+              "query": [
+                {
+                  "key": "permitId",
+                  "value": "{{permitId}}"
+                },
+                {
+                  "key": "licensePlate",
+                  "value": "{{licensePlate}}"
+                }
+              ]
+            },
+            "description": "Seen in JS, not tested. RDW vehicle info for a plate: returns `{lpSelect:{vehicleName, vehicleColor, hexCode}}`."
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate balance (unverified)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Requested-With",
+                "value": "XMLHttpRequest"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Referer",
+                "value": "{{baseUrl}}/Customer/PlanSession"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/Customer/PlanSession/CalculateBalance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Customer",
+                "PlanSession",
+                "CalculateBalance"
+              ]
+            },
+            "description": "Seen in JS, not tested. Same body as StartParkingSession (needs permitId + timeEnd); the UI uses it to preview cost/balance before starting. Run request 6's pre-request first to fill `startBody`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{startBody}}"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://parkstart-gouda.parkpermit.eu"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "csrfToken",
+      "value": ""
+    },
+    {
+      "key": "permitId",
+      "value": ""
+    },
+    {
+      "key": "addItemTemplate",
+      "value": ""
+    },
+    {
+      "key": "licensePlate",
+      "value": "XX000X"
+    },
+    {
+      "key": "durationMinutes",
+      "value": "60"
+    },
+    {
+      "key": "startBody",
+      "value": ""
+    },
+    {
+      "key": "parkingSessionId",
+      "value": ""
+    }
+  ]
+}

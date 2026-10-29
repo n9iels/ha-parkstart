@@ -1,0 +1,33 @@
+meta {
+  name: Plan session page (permits)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/Customer/PlanSession
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const html = String(res.getBody());
+  const m = html.match(/planSession\.init\('([\s\S]*?)'\);/);
+  if (m) {
+    const model = JSON.parse(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+    console.log("permits", JSON.stringify(model.permitList, null, 2));
+    bru.setVar("permitId", model.permitList[0].id);
+    bru.setVar("addItemTemplate", JSON.stringify(model.addItem));
+  }
+}
+
+tests {
+  test("view model found (logged in)", function () {
+    expect(bru.getVar("permitId")).to.be.ok;
+  });
+}
+
+docs {
+  HTML page; the view model is embedded as JSON in planSession.init('...').
+  Sets runtime vars permitId and addItemTemplate (the StartParkingSession body template).
+}

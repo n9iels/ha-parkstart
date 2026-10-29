@@ -1,0 +1,35 @@
+meta {
+  name: Get login page
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const html = String(res.getBody());
+  const input = (html.match(/<input[^>]*name="__RequestVerificationToken"[^>]*>/) || [])[0];
+  const m = input && input.match(/value="([^"]+)"/);
+  if (m) {
+    bru.setVar("csrfToken", m[1]);
+  } else {
+    console.log("No CSRF token. Status:", res.getStatus());
+    console.log("Body (first 1500 chars):", html.substring(0, 1500));
+  }
+}
+
+tests {
+  test("csrf token found", function () {
+    expect(bru.getVar("csrfToken")).to.be.a("string").and.not.empty;
+  });
+}
+
+docs {
+  Loads the login form and stores the hidden __RequestVerificationToken in the runtime var csrfToken.
+  If you are still logged in, the server logs you out first (302 -> / with the auth cookie cleared),
+  so redirects must be followed (Bruno's default).
+}

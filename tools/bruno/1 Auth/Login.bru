@@ -1,0 +1,37 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  __RequestVerificationToken: {{csrfToken}}
+  Email: {{email}}
+  Password: {{password}}
+  ReturnUrl: 
+  ShowCaptcha: False
+  ScreenWidth: 1440
+  ScreenHeight: 900
+}
+
+tests {
+  // With redirects followed you get the PlanSession page (200); without, a 302 to /Customer/PlanSession.
+  test("logged in", function () {
+    const body = String(res.getBody());
+    const location = res.getHeader("location") || "";
+    const ok = (res.getStatus() === 302 && location.includes("/Customer/PlanSession"))
+      || (res.getStatus() === 200 && body.includes("planSession.init"));
+    expect(ok, "login failed: got the login form again? Don't retry in a loop, captcha!").to.equal(true);
+  });
+}
+
+docs {
+  Form login. Success = 302 to /Customer/PlanSession + .AspNet._SSPAuthCookie cookie.
+  Failure = 200 with the login form again. Repeated failures enable reCAPTCHA: don't retry in a loop.
+}
